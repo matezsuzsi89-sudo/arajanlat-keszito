@@ -276,7 +276,7 @@ export default function Home() {
       setTimeout(() => setPdfSuccess(false), 5000);
       const a = document.createElement("a");
       a.href = pdfUrl;
-      a.download = `${parsed.data.offerId ?? "ajanlat"}_${getClientDisplayName(parsed.data.client).replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/\s+/g, "-").slice(0, 40) || "ajanlat"}.pdf`;
+      a.download = `${parsed.data.offerId ?? "ajanlat"}_${getClientDisplayName(parsed.data.client).replace(/[^a-zA-Z0-9\u00C0-\u017F\s-]/g, "").replace(/\s+/g, "-").slice(0, 40) || "ajanlat"}.pdf`;
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();
@@ -358,7 +358,7 @@ export default function Home() {
       const pdfUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = pdfUrl;
-      a.download = `${offer.offerId}_${getClientDisplayName(offer.client).replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/\s+/g, "-").slice(0, 40) || "ajanlat"}.pdf`;
+      a.download = `${offer.offerId}_${getClientDisplayName(offer.client).replace(/[^a-zA-Z0-9\u00C0-\u017F\s-]/g, "").replace(/\s+/g, "-").slice(0, 40) || "ajanlat"}.pdf`;
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();

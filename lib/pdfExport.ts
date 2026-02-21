@@ -590,7 +590,7 @@ export async function exportToPdf(data: FormData): Promise<string> {
         ? data.client?.personName
         : "";
   const safeName = (displayName ?? "ajanlat")
-    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/[^a-zA-Z0-9\u00C0-\u017F\s-]/g, "")
     .replace(/\s+/g, "-")
     .slice(0, 40) || "ajanlat";
   const filename = data.offerId
