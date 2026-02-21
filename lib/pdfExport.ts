@@ -37,6 +37,11 @@ const LINE_HEIGHT_NOTE = 6;
 const HEADER_ROW_HEIGHT = 18;
 const RED = rgb(0.75, 0.1, 0.1);
 const ROW_BORDER = rgb(0.93, 0.93, 0.93);
+const ROW_WHITE = rgb(1, 1, 1);
+const ROW_GREY = rgb(0.95, 0.95, 0.95);
+const ROOM_GREY = rgb(0.9, 0.9, 0.9);
+const TABLE_BORDER = rgb(0.75, 0.75, 0.75);
+const FONT_SIZE_ROOM = 11;
 const SPACE_BEFORE_TOTALS = 38;
 
 async function loadUnicodeFonts(doc: import("pdf-lib").PDFDocument, baseUrl?: string) {
@@ -188,15 +193,24 @@ function computeRowHeights(
 ): Record<string, number> {
   const result: Record<string, number> = {};
   const roomIds = new Set(rooms.map((r) => r.id));
-  const nameColWidth = isItemized ? LABEL_WIDTH - 8 : Math.floor(CONTENT_WIDTH_PT * 0.6) - 12;
+  const nameColWidth = isItemized ? LABEL_WIDTH - 8 : Math.floor(CONTENT_WIDTH_PT / 2) - 12;
+  const roomColW = isItemized ? CONTENT_WIDTH_PT : Math.floor(CONTENT_WIDTH_PT / 2) - 8;
   for (const id of allItemIds) {
     if (roomIds.has(id)) {
-      result[id] = HEADER_ROW_HEIGHT + 4;
+      const room = rooms.find((r) => r.id === id);
+      const roomH =
+        room && !isItemized
+          ? (wrapTextToLines((room.name ?? "").toUpperCase(), roomColW, FONT_SIZE_ROOM).length * (FONT_SIZE_ROOM + 1) +
+              ROW_PADDING_TOP +
+              ROW_PADDING_BOTTOM +
+              4)
+          : HEADER_ROW_HEIGHT + 4;
+      result[id] = Math.max(HEADER_ROW_HEIGHT + 4, roomH);
       continue;
     }
     const item = items.find((i) => i.id === id);
     if (!item) continue;
-    const noteColWidth = isItemized ? nameColWidth : Math.floor(CONTENT_WIDTH_PT * 0.4) - 12;
+    const noteColWidth = isItemized ? nameColWidth : nameColWidth;
     const nameLines = wrapTextToLines(item.name?.trim() || "—", nameColWidth, FONT_SIZE);
     const noteLines = item.note?.trim() ? wrapTextToLines(item.note.trim(), isItemized ? nameColWidth : noteColWidth, FONT_SIZE_NOTE) : [];
     const subItems = (item.subItems ?? []).filter((s) => s.name?.trim());
@@ -429,10 +443,11 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
   const headerY = tableTopY - HEADER_ROW_HEIGHT;
   const headerLabels = isItemized
     ? ["Tétel", "Menny.", "Egység", "Nettó egységár", "ÁFA %", "Nettó össz."]
-    : ["Tétel", "Megjegyzés"];
+    : ["Tételek", "Megjegyzés"];
+  const col2X = Math.floor(CONTENT_WIDTH_PT / 2);
   const colX = isItemized
     ? [MARGIN_PT, ...COL_WIDTHS.slice(0, -1).map((w, i) => MARGIN_PT + COL_WIDTHS.slice(0, i + 1).reduce((a, b) => a + b, 0))]
-    : [MARGIN_PT, MARGIN_PT + Math.floor(CONTENT_WIDTH_PT * 0.6)];
+    : [MARGIN_PT, MARGIN_PT + col2X];
   page.drawRectangle({
     x: MARGIN_PT,
     y: headerY - 2,
@@ -449,46 +464,92 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
       color: rgb(1, 1, 1),
     });
   }
+  if (!isItemized) {
+    page.drawLine({
+      start: { x: MARGIN_PT + col2X, y: headerY - 2 },
+      end: { x: MARGIN_PT + col2X, y: headerY - HEADER_ROW_HEIGHT - 6 },
+      thickness: 0.5,
+      color: rgb(1, 1, 1),
+    });
+  }
   y = headerY - HEADER_ROW_HEIGHT - 2;
+  let nonItemizedRowIndex = 0;
+  let tableTopForBorder = tableTopY;
+  let tableSectionBottom = y;
   for (const itemId of allItemIds) {
     const isRoomHeader = rooms.some((r) => r.id === itemId);
     const item = isRoomHeader ? null : items.find((i) => i.id === itemId);
     const rowHeight = rowHeights[itemId] ?? 20;
     let rowY = y - rowHeight;
     if (rowY < MARGIN_PT + 40) {
+      if (!isItemized) {
+        const tblL = MARGIN_PT;
+        const tblR = MARGIN_PT + CONTENT_WIDTH_PT;
+        const tblT = tableTopForBorder + 2;
+        const tblB = tableSectionBottom;
+        const bt = 0.8;
+        if (tblT > tblB) {
+          page.drawLine({ start: { x: tblL, y: tblB }, end: { x: tblR, y: tblB }, thickness: bt, color: TABLE_BORDER });
+          page.drawLine({ start: { x: tblR, y: tblB }, end: { x: tblR, y: tblT }, thickness: bt, color: TABLE_BORDER });
+          page.drawLine({ start: { x: tblR, y: tblT }, end: { x: tblL, y: tblT }, thickness: bt, color: TABLE_BORDER });
+          page.drawLine({ start: { x: tblL, y: tblT }, end: { x: tblL, y: tblB }, thickness: bt, color: TABLE_BORDER });
+        }
+      }
       page = doc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]);
       const { height: ph } = page.getSize();
       if (bgHex.toLowerCase() !== "#ffffff") {
         page.drawRectangle({ x: 0, y: 0, width: PAGE_WIDTH_PT, height: ph, color: bgColor });
       }
-      drawTableHeader(page, headerLabels, colX, ph - MARGIN_PT - HEADER_ROW_HEIGHT - 2, fontBold, prepare, accentColor);
+      const newHeaderY = ph - MARGIN_PT - HEADER_ROW_HEIGHT - 2;
+      drawTableHeader(page, headerLabels, colX, newHeaderY, fontBold, prepare, accentColor);
+      if (!isItemized) {
+        page.drawLine({
+          start: { x: MARGIN_PT + col2X, y: newHeaderY - 2 },
+          end: { x: MARGIN_PT + col2X, y: newHeaderY - HEADER_ROW_HEIGHT - 6 },
+          thickness: 0.5,
+          color: rgb(1, 1, 1),
+        });
+      }
       y = ph - MARGIN_PT - HEADER_ROW_HEIGHT - 4;
       rowY = y - rowHeight;
+      tableTopForBorder = newHeaderY + 2;
+      tableSectionBottom = rowY - 2;
+      hadTablePageBreak = true;
     }
     if (isRoomHeader) {
       const room = rooms.find((r) => r.id === itemId);
       if (room) {
+        const roomBg = isItemized ? rgb(0.98, 0.98, 0.98) : ROOM_GREY;
         page.drawRectangle({
           x: MARGIN_PT,
           y: rowY - 2,
           width: CONTENT_WIDTH_PT,
           height: rowHeight + 4,
-          color: rgb(0.98, 0.98, 0.98),
+          color: roomBg,
         });
-        page.drawText(prepare(room.name), {
-          x: MARGIN_PT + 4,
-          y: rowY + rowHeight / 2 - 5,
-          size: FONT_SIZE,
-          font: fontBold,
-        });
+        const roomFontSize = isItemized ? FONT_SIZE : FONT_SIZE_ROOM;
+        const roomText = isItemized ? room.name : (room.name ?? "").toUpperCase();
+        const roomColW = isItemized ? CONTENT_WIDTH_PT : col2X - 8;
+        const roomLines = wrapTextToLines(roomText, roomColW, roomFontSize);
+        const roomLineH = roomFontSize + 1;
+        let roomDrawY = rowY - ROW_PADDING_TOP;
+        for (let ri = 0; ri < roomLines.length; ri++) {
+          page.drawText(prepare(roomLines[ri]), {
+            x: MARGIN_PT + 4,
+            y: roomDrawY - (ri + 1) * roomLineH,
+            size: roomFontSize,
+            font: fontBold,
+          });
+        }
       }
+      if (!isItemized) nonItemizedRowIndex++;
       y = rowY - 2;
       continue;
     }
     if (!item) continue;
     const subItems = (item.subItems ?? []).filter((s) => s.name?.trim());
-    const nameColWidthLocal = isItemized ? LABEL_WIDTH - 8 : Math.floor(CONTENT_WIDTH_PT * 0.6) - 12;
-    const noteColWidthLocal = isItemized ? LABEL_WIDTH - 8 : CONTENT_WIDTH_PT - nameColWidthLocal - 20;
+    const nameColWidthLocal = isItemized ? LABEL_WIDTH - 8 : col2X - 12;
+    const noteColWidthLocal = isItemized ? LABEL_WIDTH - 8 : col2X - 12;
     const nameLines = wrapTextToLines(item.name.trim() || "—", nameColWidthLocal, FONT_SIZE);
     const noteLines = (item.note?.trim() ? wrapTextToLines(item.note.trim(), nameColWidthLocal, FONT_SIZE_NOTE) : []) as string[];
     const nameH = nameLines.length * LINE_HEIGHT_NAME;
@@ -497,12 +558,17 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
     const subH = isItemized ? 0 : subItems.length * (LINE_HEIGHT_NOTE + 2);
     const cellH = Math.max(rowHeight, nameH + gap + noteH + subH + ROW_PADDING_TOP + ROW_PADDING_BOTTOM);
     const borderY = rowY - cellH - 2;
+    const rowBg = isItemized
+      ? ROW_WHITE
+      : nonItemizedRowIndex % 2 === 0
+        ? ROW_WHITE
+        : ROW_GREY;
     page.drawRectangle({
       x: MARGIN_PT,
       y: borderY,
       width: CONTENT_WIDTH_PT,
       height: cellH + 4,
-      color: rgb(1, 1, 1),
+      color: rowBg,
     });
     page.drawRectangle({
       x: MARGIN_PT,
@@ -531,26 +597,35 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
         });
       }
     } else {
-      const noteLinesRight = wrapTextToLines(item.note?.trim() ?? "", noteColWidthLocal, FONT_SIZE_NOTE);
+      const itemNoteSize = FONT_SIZE;
+      const itemNoteLineH = LINE_HEIGHT_NAME;
+      const noteLinesRight = wrapTextToLines(item.note?.trim() ?? "", noteColWidthLocal, itemNoteSize);
       for (let i = 0; i < noteLinesRight.length; i++) {
         page.drawText(prepare(noteLinesRight[i]), {
           x: colX[1] + 4,
-          y: startY - (i + 1) * LINE_HEIGHT_NOTE,
-          size: FONT_SIZE_NOTE,
+          y: startY - (i + 1) * itemNoteLineH,
+          size: itemNoteSize,
           font: fontItalic,
         });
       }
       const subIndent = 12;
+      const subLineH = itemNoteLineH + 2;
       let subY = startY - nameH - gap;
       for (let si = 0; si < subItems.length; si++) {
         const subName = subItems[si].name?.trim() ?? "";
         page.drawText(prepare(`– ${subName}`), {
           x: colX[0] + 4 + subIndent,
-          y: subY - (si + 1) * (LINE_HEIGHT_NOTE + 2),
-          size: FONT_SIZE_NOTE,
+          y: subY - (si + 1) * subLineH,
+          size: itemNoteSize,
           font,
         });
       }
+      page.drawLine({
+        start: { x: MARGIN_PT + col2X, y: borderY },
+        end: { x: MARGIN_PT + col2X, y: rowY + 2 },
+        thickness: 0.5,
+        color: TABLE_BORDER,
+      });
     }
     if (isItemized) {
       const netTotal = getItemNetTotal(item);
@@ -559,8 +634,22 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
       page.drawText(prepare(item.netUnitPrice.toLocaleString("hu-HU")), { x: colX[3] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
       page.drawText(prepare(String(item.vatPercent)), { x: colX[4] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
       page.drawText(prepare(netTotal.toLocaleString("hu-HU")), { x: colX[5] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+    } else {
+      nonItemizedRowIndex++;
     }
     y = rowY - cellH - 4;
+    tableSectionBottom = borderY - 2;
+  }
+  if (!isItemized && tableTopForBorder > tableSectionBottom) {
+    const tblL = MARGIN_PT;
+    const tblR = MARGIN_PT + CONTENT_WIDTH_PT;
+    const tblT = tableTopForBorder + 2;
+    const tblB = tableSectionBottom;
+    const bt = 0.8;
+    page.drawLine({ start: { x: tblL, y: tblB }, end: { x: tblR, y: tblB }, thickness: bt, color: TABLE_BORDER });
+    page.drawLine({ start: { x: tblR, y: tblB }, end: { x: tblR, y: tblT }, thickness: bt, color: TABLE_BORDER });
+    page.drawLine({ start: { x: tblR, y: tblT }, end: { x: tblL, y: tblT }, thickness: bt, color: TABLE_BORDER });
+    page.drawLine({ start: { x: tblL, y: tblT }, end: { x: tblL, y: tblB }, thickness: bt, color: TABLE_BORDER });
   }
   y -= SPACE_BEFORE_TOTALS;
 
