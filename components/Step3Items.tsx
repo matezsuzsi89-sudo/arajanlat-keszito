@@ -42,7 +42,6 @@ function DragHandle({
         viewBox="0 0 24 24"
         fill="currentColor"
         className="h-4 w-4 pointer-events-none"
-        draggable={false}
       >
         <path d="M8 6a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0zm6-12a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0zm0 6a2 2 0 11-4 0 2 2 0 014 0z" />
       </svg>
