@@ -137,7 +137,7 @@ function drawWrappedText(
 
 function drawFooter(
   page: PDFPage,
-  company: { phone: string; email?: string },
+  company: { phone?: string; email?: string },
   accentColor: RGB,
   font: PDFFont,
   pageWidth: number,
@@ -145,7 +145,7 @@ function drawFooter(
   prepare: (t: string) => string
 ) {
   const fs = 9;
-  const contactParts: string[] = [`Tel: ${company.phone}`];
+  const contactParts: string[] = [`Tel: ${company.phone ?? ""}`];
   if (company.email?.trim()) contactParts.push(`E-mail: ${company.email}`);
   const contactStr = prepare(contactParts.join("  |  "));
   const dateStr = prepare(new Date().toLocaleDateString("hu-HU"));
