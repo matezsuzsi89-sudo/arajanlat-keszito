@@ -580,7 +580,7 @@ export async function exportToPdf(data: FormData): Promise<string> {
   }
 
   const pdfBytes = await doc.save();
-  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
 
   const displayName =
