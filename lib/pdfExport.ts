@@ -496,10 +496,10 @@ export async function exportToPdf(data: FormData): Promise<string> {
   const summaryFontSize = 12;
   const summaryWidth = summaryLabelWidth + summaryValueWidth;
   const summaryX = PAGE_WIDTH_PT - MARGIN_PT - summaryWidth;
-  const summaryRows = [
-    { label: "Nettó részösszeg", value: `${netSubtotal.toLocaleString("hu-HU")} Ft`, color: undefined },
-    { label: "ÁFA összesen", value: `${vatTotal.toLocaleString("hu-HU")} Ft`, color: undefined },
-    { label: "Bruttó végösszeg", value: `${grossSubtotal.toLocaleString("hu-HU")} Ft`, color: undefined },
+  const summaryRows: { label: string; value: string; color?: RGB }[] = [
+    { label: "Nettó részösszeg", value: `${netSubtotal.toLocaleString("hu-HU")} Ft` },
+    { label: "ÁFA összesen", value: `${vatTotal.toLocaleString("hu-HU")} Ft` },
+    { label: "Bruttó végösszeg", value: `${grossSubtotal.toLocaleString("hu-HU")} Ft` },
   ];
   if (hasDiscount && discountPercent > 0) {
     summaryRows.push({
