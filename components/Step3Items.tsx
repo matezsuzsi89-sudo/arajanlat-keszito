@@ -57,7 +57,7 @@ type Props = {
   onRoomsChange: (rooms: RoomData[]) => void;
   isItemized: boolean;
   onIsItemizedChange: (value: boolean) => void;
-  errors: Partial<Record<string, Record<keyof ItemData, string>>>;
+  errors: Partial<Record<string, Partial<Record<keyof ItemData, string>>>>;
 };
 
 export default function Step3Items({ items, onItemsChange, rooms, onRoomsChange, isItemized, onIsItemizedChange, errors }: Props) {
