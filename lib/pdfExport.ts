@@ -49,10 +49,11 @@ async function loadUnicodeFonts(doc: import("pdf-lib").PDFDocument, baseUrl?: st
           ? `${baseUrl.replace(/\/$/, "")}/api/font/`
           : "";
     if (!base) throw new Error("No font base URL");
+    const ttfSuffix = "?format=ttf";
     const [r1, r2, r3] = await Promise.all([
-      fetch(`${base}NotoSans-Regular`),
-      fetch(`${base}NotoSans-Bold`),
-      fetch(`${base}NotoSans-Italic`),
+      fetch(`${base}NotoSans-Regular${ttfSuffix}`),
+      fetch(`${base}NotoSans-Bold${ttfSuffix}`),
+      fetch(`${base}NotoSans-Italic${ttfSuffix}`),
     ]);
     if (!r1.ok || !r2.ok || !r3.ok) throw new Error("Font fetch failed");
     const [font, fontBold, fontItalic] = await Promise.all([
