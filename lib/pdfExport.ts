@@ -7,13 +7,15 @@ import {
   type PDFFont,
 } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
-import type { FormData, ItemData, PdfDesign } from "./schema";
+import type { FormData, ItemData, PdfDesign, RoomData } from "./schema";
 import {
   getItemNetTotal,
   getItemGrossTotal,
   getTotals,
   getDiscountAmount,
   getFinalTotal,
+  getRoomsInOrder,
+  groupItemsByRoom,
 } from "./schema";
 
 const FONT_SIZE = 10;
@@ -173,7 +175,59 @@ function drawFooter(
   });
 }
 
-export async function exportToPdf(data: FormData): Promise<string> {
+function computeRowHeights(
+  items: ItemData[],
+  allItemIds: string[],
+  rooms: RoomData[]
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  const roomIds = new Set(rooms.map((r) => r.id));
+  for (const id of allItemIds) {
+    if (roomIds.has(id)) {
+      result[id] = HEADER_ROW_HEIGHT + 4;
+      continue;
+    }
+    const item = items.find((i) => i.id === id);
+    if (!item) continue;
+    const nameLines = wrapTextToLines(item.name?.trim() || "—", LABEL_WIDTH - 8, FONT_SIZE);
+    const noteLines = item.note?.trim() ? wrapTextToLines(item.note.trim(), LABEL_WIDTH - 8, FONT_SIZE_NOTE) : [];
+    const nameH = nameLines.length * LINE_HEIGHT_NAME;
+    const noteH = noteLines.length * LINE_HEIGHT_NOTE;
+    const gap = noteH > 0 ? GAP_NAME_NOTE : 0;
+    result[id] = Math.max(20, nameH + gap + noteH + ROW_PADDING_TOP + ROW_PADDING_BOTTOM + 4);
+  }
+  return result;
+}
+
+function drawTableHeader(
+  page: PDFPage,
+  headerLabels: string[],
+  colX: number[],
+  y: number,
+  fontBold: PDFFont,
+  prepare: (t: string) => string,
+  accentColor: RGB
+): void {
+  page.drawRectangle({
+    x: MARGIN_PT,
+    y: y - HEADER_ROW_HEIGHT - 2,
+    width: CONTENT_WIDTH_PT,
+    height: HEADER_ROW_HEIGHT + 4,
+    color: accentColor,
+  });
+  for (let i = 0; i < headerLabels.length; i++) {
+    page.drawText(prepare(headerLabels[i]), {
+      x: colX[i] + 4,
+      y: y - HEADER_ROW_HEIGHT - 12,
+      size: FONT_SIZE_SMALL,
+      font: fontBold,
+      color: rgb(1, 1, 1),
+    });
+  }
+}
+
+/** Server-safe: returns raw PDF bytes. Use in API routes. */
+export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const { font, fontBold, fontItalic, useUnicode } = await loadUnicodeFonts(doc);
   const prepare = (t: string) => prepareText(t, useUnicode);
@@ -217,11 +271,10 @@ export async function exportToPdf(data: FormData): Promise<string> {
       x: PAGE_WIDTH_PT - MARGIN_PT - 80,
       y: pageHeight - HEADER_BAR_HEIGHT / 2 - 4,
       size: 10,
-      font: font,
+      font,
       color: rgb(1, 1, 1),
     });
   }
-
   let y = pageHeight - HEADER_BAR_HEIGHT - MARGIN_PT;
 
   const { company, client, generalNote, items, hasDiscount, discountPercent = 0 } = data;
@@ -345,150 +398,120 @@ export async function exportToPdf(data: FormData): Promise<string> {
     y -= noteHeight + 12;
   }
 
-  const colW1 = CONTENT_WIDTH_PT - COL_WIDTHS.reduce((a, b) => a + b, 0);
-  const tételCellWidth = colW1 - 10;
-  const headerLabels = ["Tétel", "Menny.", "ME", "Nettó egys.", "ÁFA %", "Nettó", "Bruttó"];
-  const allColWidths = [colW1, ...COL_WIDTHS];
-
+  const rooms = getRoomsInOrder(data.rooms ?? []);
+  const groups = groupItemsByRoom(items, rooms);
+  const itemsByRoom: Record<string, ItemData[]> = {};
+  for (const g of groups) {
+    if (g.roomId) itemsByRoom[g.roomId] = g.items;
+  }
+  const allItemIds = [...items.filter((i) => !i.roomId).map((i) => i.id), ...rooms.flatMap((r) => itemsByRoom[r.id] ?? []).map((i) => i.id)];
+  const rowHeights = computeRowHeights(items, allItemIds, rooms);
+  const tableTopY = y;
+  const headerBg = accentColor;
+  const headerY = tableTopY - HEADER_ROW_HEIGHT;
   page.drawRectangle({
     x: MARGIN_PT,
-    y: y - HEADER_ROW_HEIGHT,
+    y: headerY - 2,
     width: CONTENT_WIDTH_PT,
-    height: HEADER_ROW_HEIGHT,
-    color: accentColor,
+    height: HEADER_ROW_HEIGHT + 4,
+    color: headerBg,
   });
-  let headerX = MARGIN_PT;
-  headerLabels.forEach((h, i) => {
-    const pad = i === 0 ? 6 : 4;
-    const cellW = allColWidths[i];
-    const labelStr = prepare(h);
-    const labelW = fontBold.widthOfTextAtSize(labelStr, FONT_SIZE_SMALL);
-    const isRightAlign = i > 0;
-    const headerTextX = isRightAlign
-      ? headerX + cellW - labelW - pad
-      : headerX + pad;
-    page.drawText(labelStr, {
-      x: headerTextX,
-      y: y - HEADER_ROW_HEIGHT + 5,
+  const headerLabels = ["Tétel", "Menny.", "Egység", "Nettó egységár", "ÁFA %", "Nettó össz."];
+  const colX = [MARGIN_PT, ...COL_WIDTHS.slice(0, -1).map((w, i) => MARGIN_PT + COL_WIDTHS.slice(0, i + 1).reduce((a, b) => a + b, 0))];
+  for (let i = 0; i < headerLabels.length; i++) {
+    page.drawText(prepare(headerLabels[i]), {
+      x: colX[i] + 4,
+      y: headerY - 12,
       size: FONT_SIZE_SMALL,
       font: fontBold,
       color: rgb(1, 1, 1),
     });
-    headerX += cellW;
-  });
-  y -= HEADER_ROW_HEIGHT;
-
-  for (let idx = 0; idx < items.length; idx++) {
-    const item = items[idx] as ItemData;
-    const nameLines = wrapTextToLines(item.name, tételCellWidth, FONT_SIZE_SMALL);
-    const noteLines =
-      item.note && item.note.trim()
-        ? wrapTextToLines(item.note.trim(), tételCellWidth, FONT_SIZE_NOTE)
-        : [];
-
-    const contentHeight =
-      nameLines.length * LINE_HEIGHT_NAME +
-      (noteLines.length ? GAP_NAME_NOTE + noteLines.length * LINE_HEIGHT_NOTE : 0);
-    const rowHeight = ROW_PADDING_TOP + contentHeight + ROW_PADDING_BOTTOM;
-
-    if (y - rowHeight < MARGIN_PT + FOOTER_BAR_HEIGHT + 50) {
+  }
+  y = headerY - HEADER_ROW_HEIGHT - 2;
+  for (const itemId of allItemIds) {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) continue;
+    const rowHeight = rowHeights[itemId] ?? 20;
+    const rowY = y - rowHeight;
+    if (rowY < MARGIN_PT + 40) {
       page = doc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]);
+      const { height: ph } = page.getSize();
+      y = ph - MARGIN_PT;
       if (bgHex.toLowerCase() !== "#ffffff") {
+        page.drawRectangle({ x: 0, y: 0, width: PAGE_WIDTH_PT, height: ph, color: bgColor });
+      }
+      drawTableHeader(page, headerLabels, colX, ph - MARGIN_PT - HEADER_ROW_HEIGHT - 2, fontBold, prepare, accentColor);
+      y = ph - MARGIN_PT - HEADER_ROW_HEIGHT - 4;
+      continue;
+    }
+    const isRoomHeader = rooms.some((r) => r.id === itemId);
+    if (isRoomHeader) {
+      const room = rooms.find((r) => r.id === itemId);
+      if (room) {
         page.drawRectangle({
-          x: 0,
-          y: 0,
-          width: PAGE_WIDTH_PT,
-          height: PAGE_HEIGHT_PT,
-          color: bgColor,
+          x: MARGIN_PT,
+          y: rowY - 2,
+          width: CONTENT_WIDTH_PT,
+          height: rowHeight + 4,
+          color: rgb(0.98, 0.98, 0.98),
+        });
+        page.drawText(prepare(room.name), {
+          x: MARGIN_PT + 4,
+          y: rowY + rowHeight / 2 - 5,
+          size: FONT_SIZE,
+          font: fontBold,
         });
       }
-      y = pageHeight - MARGIN_PT;
+      y = rowY - 2;
+      continue;
     }
-
-    const rowTop = y - ROW_PADDING_TOP;
-    if (idx % 2 === 1) {
-      page.drawRectangle({
-        x: MARGIN_PT,
-        y: y - rowHeight,
-        width: CONTENT_WIDTH_PT,
-        height: rowHeight,
-        color: rgb(0.98, 0.98, 0.98),
-      });
-    }
-    page.drawLine({
-      start: { x: MARGIN_PT, y: y - rowHeight },
-      end: { x: MARGIN_PT + CONTENT_WIDTH_PT, y: y - rowHeight },
-      thickness: 0.25,
+    const subItems = item.subItems ?? [];
+    const nameLines = wrapTextToLines(item.name.trim() || "—", LABEL_WIDTH - 8, FONT_SIZE);
+    const noteLines = (item.note?.trim() ? wrapTextToLines(item.note.trim(), LABEL_WIDTH - 8, FONT_SIZE_NOTE) : []) as string[];
+    const nameH = nameLines.length * LINE_HEIGHT_NAME;
+    const noteH = noteLines.length * LINE_HEIGHT_NOTE;
+    const gap = noteH > 0 ? GAP_NAME_NOTE : 0;
+    const cellH = Math.max(rowHeight, nameH + gap + noteH + ROW_PADDING_TOP + ROW_PADDING_BOTTOM);
+    const netTotal = getItemNetTotal(item);
+    const borderY = rowY - cellH - 2;
+    page.drawRectangle({
+      x: MARGIN_PT,
+      y: borderY,
+      width: CONTENT_WIDTH_PT,
+      height: cellH + 4,
+      color: rgb(1, 1, 1),
+    });
+    page.drawRectangle({
+      x: MARGIN_PT,
+      y: borderY,
+      width: CONTENT_WIDTH_PT,
+      height: 1,
       color: ROW_BORDER,
     });
-
-    let textY = rowTop - 4;
     for (let i = 0; i < nameLines.length; i++) {
       page.drawText(prepare(nameLines[i]), {
-        x: MARGIN_PT + 6,
-        y: textY,
-        size: FONT_SIZE_SMALL,
-        font: fontBold,
-      });
-      textY -= LINE_HEIGHT_NAME;
-    }
-    if (noteLines.length) {
-      textY -= GAP_NAME_NOTE;
-      for (let i = 0; i < noteLines.length; i++) {
-        page.drawText(prepare(noteLines[i]), {
-          x: MARGIN_PT + 6,
-          y: textY,
-          size: FONT_SIZE_NOTE,
-          font: fontItalic,
-        });
-        textY -= LINE_HEIGHT_NOTE;
-      }
-    }
-
-    const restCells = [
-      String(item.quantity),
-      item.unit,
-      `${item.netUnitPrice.toLocaleString("hu-HU")} Ft`,
-      `${item.vatPercent}%`,
-      `${getItemNetTotal(item).toLocaleString("hu-HU")} Ft`,
-      `${getItemGrossTotal(item).toLocaleString("hu-HU")} Ft`,
-    ];
-    const dataY = rowTop - 4;
-    const cellPad = 4;
-    let cellX = MARGIN_PT + colW1;
-    restCells.forEach((cell, i) => {
-      const w = COL_WIDTHS[i];
-      const text = cell.length > 14 ? cell.slice(0, 12) + "…" : cell;
-      const textStr = prepare(text);
-      const textW = font.widthOfTextAtSize(textStr, FONT_SIZE_SMALL);
-      const x = cellX + Math.max(0, w - cellPad - textW);
-      page.drawText(textStr, {
-        x,
-        y: dataY,
-        size: FONT_SIZE_SMALL,
+        x: colX[0] + 4,
+        y: rowY - ROW_PADDING_TOP - (i + 1) * LINE_HEIGHT_NAME,
+        size: FONT_SIZE,
         font,
       });
-      cellX += w;
-    });
-
-    y -= rowHeight;
-  }
-
-  y -= SPACE_BEFORE_TOTALS;
-
-  if (y < MARGIN_PT + FOOTER_BAR_HEIGHT + 160) {
-    page = doc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]);
-    if (bgHex.toLowerCase() !== "#ffffff") {
-      page.drawRectangle({
-        x: 0,
-        y: 0,
-        width: PAGE_WIDTH_PT,
-        height: PAGE_HEIGHT_PT,
-        color: bgColor,
+    }
+    for (let i = 0; i < noteLines.length; i++) {
+      page.drawText(prepare(noteLines[i]), {
+        x: colX[0] + 4,
+        y: rowY - ROW_PADDING_TOP - nameH - gap - (i + 1) * LINE_HEIGHT_NOTE,
+        size: FONT_SIZE_NOTE,
+        font: fontItalic,
       });
     }
-    y = pageHeight - MARGIN_PT;
+    page.drawText(prepare(String(item.quantity)), { x: colX[1] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+    page.drawText(prepare(item.unit), { x: colX[2] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+    page.drawText(prepare(item.netUnitPrice.toLocaleString("hu-HU")), { x: colX[3] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+    page.drawText(prepare(String(item.vatPercent)), { x: colX[4] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+    page.drawText(prepare(netTotal.toLocaleString("hu-HU")), { x: colX[5] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+    y = rowY - cellH - 4;
   }
+  y -= SPACE_BEFORE_TOTALS;
 
   const summaryLabelWidth = 200;
   const summaryValueWidth = 110;
@@ -559,6 +582,16 @@ export async function exportToPdf(data: FormData): Promise<string> {
     font: fontBold,
     color: rgb(1, 1, 1),
   });
+  y -= finalBarHeight + 4;
+
+  const priceDisclaimer = data.priceDisclaimer ?? "labor_only";
+  const disclaimerText = priceDisclaimer === "material_and_labor" ? "Az árak anyag és munka díjat tartalmaznak." : "Az árak csak a munkadíjat tartalmazzák, az anyagköltséget külön számlázzuk.";
+  page.drawText(prepare(disclaimerText), {
+    x: MARGIN_PT,
+    y: y - 14,
+    size: FONT_SIZE_SMALL,
+    font,
+  });
 
   if (company.quotePreparedBy?.trim()) {
     const preparedY = y - finalBarHeight - 4 - 20;
@@ -580,7 +613,13 @@ export async function exportToPdf(data: FormData): Promise<string> {
   }
 
   const pdfBytes = await doc.save();
-  const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
+  return new Uint8Array(pdfBytes);
+}
+
+export async function exportToPdf(data: FormData): Promise<string> {
+  const pdfBytes = await exportToPdfBytes(data);
+
+  const blob = new Blob([pdfBytes], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
 
   const displayName =
