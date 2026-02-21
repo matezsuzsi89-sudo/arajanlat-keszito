@@ -268,23 +268,23 @@ export async function exportToPdf(data: FormData): Promise<string> {
   let leftY = y;
   let rightY = y;
 
-  page.drawText(prepare(company.companyName), {
+  page.drawText(prepare(company.companyName ?? ""), {
     x: leftX,
     y: leftY,
     size: FONT_SIZE,
     font: fontBold,
   });
   leftY -= FONT_SIZE + 2;
-  page.drawText(prepare(company.address), { x: leftX, y: leftY, size: FONT_SIZE, font });
+  page.drawText(prepare(company.address ?? ""), { x: leftX, y: leftY, size: FONT_SIZE, font });
   leftY -= FONT_SIZE + 2;
-  page.drawText(prepare(`Tel: ${company.phone}`), { x: leftX, y: leftY, size: FONT_SIZE, font });
+  page.drawText(prepare(`Tel: ${company.phone ?? ""}`), { x: leftX, y: leftY, size: FONT_SIZE, font });
   leftY -= FONT_SIZE + 2;
-  page.drawText(prepare(`Adószám: ${company.taxNumber}`), { x: leftX, y: leftY, size: FONT_SIZE, font });
+  page.drawText(prepare(`Adószám: ${company.taxNumber ?? ""}`), { x: leftX, y: leftY, size: FONT_SIZE, font });
   leftY -= FONT_SIZE + 2;
-  page.drawText(prepare(`Bankszámla: ${company.bankAccount}`), { x: leftX, y: leftY, size: FONT_SIZE, font });
+  page.drawText(prepare(`Bankszámla: ${company.bankAccount ?? ""}`), { x: leftX, y: leftY, size: FONT_SIZE, font });
   leftY -= FONT_SIZE + 2;
   if (company.email) {
-    page.drawText(prepare(`E-mail: ${company.email}`), { x: leftX, y: leftY, size: FONT_SIZE, font });
+    page.drawText(prepare(`E-mail: ${company.email ?? ""}`), { x: leftX, y: leftY, size: FONT_SIZE, font });
     leftY -= FONT_SIZE + 2;
   }
 
@@ -306,19 +306,19 @@ export async function exportToPdf(data: FormData): Promise<string> {
     page.drawText(prepare(clientName!), { x: rightX, y: rightY, size: FONT_SIZE, font });
     rightY -= FONT_SIZE + 2;
     if ("kind" in client && client.kind === "company" && client.taxNumber?.trim()) {
-      page.drawText(prepare(`Adószám: ${client.taxNumber}`), { x: rightX, y: rightY, size: FONT_SIZE, font });
+      page.drawText(prepare(`Adószám: ${client.taxNumber ?? ""}`), { x: rightX, y: rightY, size: FONT_SIZE, font });
       rightY -= FONT_SIZE + 2;
     }
     if (client.address?.trim()) {
-      page.drawText(prepare(client.address), { x: rightX, y: rightY, size: FONT_SIZE, font });
+      page.drawText(prepare(client.address ?? ""), { x: rightX, y: rightY, size: FONT_SIZE, font });
       rightY -= FONT_SIZE + 2;
     }
     if (client.phone?.trim()) {
-      page.drawText(prepare(`Tel: ${client.phone}`), { x: rightX, y: rightY, size: FONT_SIZE, font });
+      page.drawText(prepare(`Tel: ${client.phone ?? ""}`), { x: rightX, y: rightY, size: FONT_SIZE, font });
       rightY -= FONT_SIZE + 2;
     }
     if (client.email?.trim()) {
-      page.drawText(prepare(`E-mail: ${client.email}`), { x: rightX, y: rightY, size: FONT_SIZE, font });
+      page.drawText(prepare(`E-mail: ${client.email ?? ""}`), { x: rightX, y: rightY, size: FONT_SIZE, font });
       rightY -= FONT_SIZE + 2;
     }
   }
@@ -563,7 +563,7 @@ export async function exportToPdf(data: FormData): Promise<string> {
   if (company.quotePreparedBy?.trim()) {
     const preparedY = y - finalBarHeight - 4 - 20;
     page.drawText(
-      prepare(`Árajánlatot készítette: ${company.quotePreparedBy.trim()}`),
+      prepare(`Árajánlatot készítette: ${company.quotePreparedBy?.trim() ?? ""}`),
       {
         x: MARGIN_PT,
         y: preparedY,
