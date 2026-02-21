@@ -60,8 +60,8 @@ export const clientSchema = z.discriminatedUnion("kind", [
 
 export function getClientDisplayName(client: ClientData): string {
   if ("kind" in client) {
-    if (client.kind === "company") return client.companyName;
-    return client.personName;
+    if (client.kind === "company") return client.companyName ?? "";
+    return client.personName ?? "";
   }
   if ("name" in client && typeof (client as { name?: string }).name === "string") {
     return (client as { name: string }).name;
