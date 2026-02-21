@@ -112,13 +112,14 @@ function offerToFormData(offer: SavedOffer): FormData {
     const c = offer.client as ClientData & { name?: string } | undefined;
     if (!c) return INITIAL_DATA.client;
     if (c.kind === "company" || c.kind === "individual") return offer.client as ClientData;
-    if (c.name != null) {
+    const legacy = c as { name?: string; address?: string; phone?: string; email?: string };
+    if (legacy.name != null) {
       return {
         kind: "individual" as const,
-        personName: c.name,
-        address: c.address ?? "",
-        phone: c.phone ?? "",
-        email: c.email ?? "",
+        personName: legacy.name,
+        address: legacy.address ?? "",
+        phone: legacy.phone ?? "",
+        email: legacy.email ?? "",
       };
     }
     return INITIAL_DATA.client;
