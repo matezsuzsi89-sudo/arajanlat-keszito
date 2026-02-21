@@ -68,7 +68,7 @@ export async function POST(request: Request) {
         footerTemplate: buildFooterTemplate(data),
         margin: { top: "15mm", right: "0", bottom: "15mm", left: "0" },
       });
-      return new NextResponse(pdfBuffer, {
+      return new NextResponse(Buffer.from(pdfBuffer), {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="arajánlat.pdf"`,
