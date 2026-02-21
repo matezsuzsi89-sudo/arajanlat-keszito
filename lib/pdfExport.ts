@@ -178,10 +178,12 @@ function drawFooter(
 function computeRowHeights(
   items: ItemData[],
   allItemIds: string[],
-  rooms: RoomData[]
+  rooms: RoomData[],
+  isItemized: boolean
 ): Record<string, number> {
   const result: Record<string, number> = {};
   const roomIds = new Set(rooms.map((r) => r.id));
+  const nameColWidth = isItemized ? LABEL_WIDTH - 8 : Math.floor(CONTENT_WIDTH_PT * 0.6) - 12;
   for (const id of allItemIds) {
     if (roomIds.has(id)) {
       result[id] = HEADER_ROW_HEIGHT + 4;
@@ -189,12 +191,16 @@ function computeRowHeights(
     }
     const item = items.find((i) => i.id === id);
     if (!item) continue;
-    const nameLines = wrapTextToLines(item.name?.trim() || "—", LABEL_WIDTH - 8, FONT_SIZE);
-    const noteLines = item.note?.trim() ? wrapTextToLines(item.note.trim(), LABEL_WIDTH - 8, FONT_SIZE_NOTE) : [];
+    const noteColWidth = isItemized ? nameColWidth : Math.floor(CONTENT_WIDTH_PT * 0.4) - 12;
+    const nameLines = wrapTextToLines(item.name?.trim() || "—", nameColWidth, FONT_SIZE);
+    const noteLines = item.note?.trim() ? wrapTextToLines(item.note.trim(), isItemized ? nameColWidth : noteColWidth, FONT_SIZE_NOTE) : [];
+    const subItems = (item.subItems ?? []).filter((s) => s.name?.trim());
+    const subH = isItemized ? 0 : subItems.length * (LINE_HEIGHT_NOTE + 2);
     const nameH = nameLines.length * LINE_HEIGHT_NAME;
     const noteH = noteLines.length * LINE_HEIGHT_NOTE;
-    const gap = noteH > 0 ? GAP_NAME_NOTE : 0;
-    result[id] = Math.max(20, nameH + gap + noteH + ROW_PADDING_TOP + ROW_PADDING_BOTTOM + 4);
+    const gap = noteH > 0 && isItemized ? GAP_NAME_NOTE : 0;
+    const contentH = isItemized ? nameH + gap + noteH + subH : Math.max(nameH + subH, noteH) + (noteH > 0 ? GAP_NAME_NOTE : 0);
+    result[id] = Math.max(20, contentH + ROW_PADDING_TOP + ROW_PADDING_BOTTOM + 4);
   }
   return result;
 }
@@ -277,14 +283,21 @@ export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
   }
   let y = pageHeight - HEADER_BAR_HEIGHT - MARGIN_PT;
 
-  const { company, client, generalNote, items, hasDiscount, discountPercent = 0 } = data;
+  const { company, client, generalNote, items, hasDiscount, discountPercent = 0, isItemized = true, manualNetTotal = 0, manualGrossTotal = 0 } = data;
   const { netSubtotal, grossSubtotal, vatTotal } = getTotals(items);
-  const discountAmount = hasDiscount
-    ? getDiscountAmount(grossSubtotal, discountPercent)
-    : 0;
-  const finalTotal = hasDiscount
-    ? getFinalTotal(grossSubtotal, discountPercent)
-    : grossSubtotal;
+  const MANUAL_VAT = 27;
+  const netVal = manualNetTotal ?? 0;
+  const effectiveGross = isItemized
+    ? grossSubtotal
+    : (manualGrossTotal ?? 0) > 0
+      ? manualGrossTotal!
+      : Math.round(netVal * (1 + MANUAL_VAT / 100));
+  const effectiveVat = isItemized ? vatTotal : Math.max(0, effectiveGross - netVal);
+  const effectiveNet = isItemized ? netSubtotal : netVal;
+  const discountAmount = hasDiscount ? getDiscountAmount(effectiveGross, discountPercent) : 0;
+  const finalTotal = isItemized
+    ? (hasDiscount ? getFinalTotal(effectiveGross, discountPercent) : effectiveGross)
+    : netVal;
 
   if (company.logoDataUrl) {
     try {
@@ -400,15 +413,21 @@ export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
 
   const rooms = getRoomsInOrder(data.rooms ?? []);
   const groups = groupItemsByRoom(items, rooms);
-  const itemsByRoom: Record<string, ItemData[]> = {};
+  const allItemIds: string[] = [];
   for (const g of groups) {
-    if (g.roomId) itemsByRoom[g.roomId] = g.items;
+    if (g.roomId) allItemIds.push(g.roomId);
+    allItemIds.push(...g.items.map((i) => i.id));
   }
-  const allItemIds = [...items.filter((i) => !i.roomId).map((i) => i.id), ...rooms.flatMap((r) => itemsByRoom[r.id] ?? []).map((i) => i.id)];
-  const rowHeights = computeRowHeights(items, allItemIds, rooms);
+  const rowHeights = computeRowHeights(items, allItemIds, rooms, isItemized);
   const tableTopY = y;
   const headerBg = accentColor;
   const headerY = tableTopY - HEADER_ROW_HEIGHT;
+  const headerLabels = isItemized
+    ? ["Tétel", "Menny.", "Egység", "Nettó egységár", "ÁFA %", "Nettó össz."]
+    : ["Tétel", "Megjegyzés"];
+  const colX = isItemized
+    ? [MARGIN_PT, ...COL_WIDTHS.slice(0, -1).map((w, i) => MARGIN_PT + COL_WIDTHS.slice(0, i + 1).reduce((a, b) => a + b, 0))]
+    : [MARGIN_PT, MARGIN_PT + Math.floor(CONTENT_WIDTH_PT * 0.6)];
   page.drawRectangle({
     x: MARGIN_PT,
     y: headerY - 2,
@@ -416,8 +435,6 @@ export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
     height: HEADER_ROW_HEIGHT + 4,
     color: headerBg,
   });
-  const headerLabels = ["Tétel", "Menny.", "Egység", "Nettó egységár", "ÁFA %", "Nettó össz."];
-  const colX = [MARGIN_PT, ...COL_WIDTHS.slice(0, -1).map((w, i) => MARGIN_PT + COL_WIDTHS.slice(0, i + 1).reduce((a, b) => a + b, 0))];
   for (let i = 0; i < headerLabels.length; i++) {
     page.drawText(prepare(headerLabels[i]), {
       x: colX[i] + 4,
@@ -429,22 +446,20 @@ export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
   }
   y = headerY - HEADER_ROW_HEIGHT - 2;
   for (const itemId of allItemIds) {
-    const item = items.find((i) => i.id === itemId);
-    if (!item) continue;
+    const isRoomHeader = rooms.some((r) => r.id === itemId);
+    const item = isRoomHeader ? null : items.find((i) => i.id === itemId);
     const rowHeight = rowHeights[itemId] ?? 20;
-    const rowY = y - rowHeight;
+    let rowY = y - rowHeight;
     if (rowY < MARGIN_PT + 40) {
       page = doc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]);
       const { height: ph } = page.getSize();
-      y = ph - MARGIN_PT;
       if (bgHex.toLowerCase() !== "#ffffff") {
         page.drawRectangle({ x: 0, y: 0, width: PAGE_WIDTH_PT, height: ph, color: bgColor });
       }
       drawTableHeader(page, headerLabels, colX, ph - MARGIN_PT - HEADER_ROW_HEIGHT - 2, fontBold, prepare, accentColor);
       y = ph - MARGIN_PT - HEADER_ROW_HEIGHT - 4;
-      continue;
+      rowY = y - rowHeight;
     }
-    const isRoomHeader = rooms.some((r) => r.id === itemId);
     if (isRoomHeader) {
       const room = rooms.find((r) => r.id === itemId);
       if (room) {
@@ -465,14 +480,17 @@ export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
       y = rowY - 2;
       continue;
     }
-    const subItems = item.subItems ?? [];
-    const nameLines = wrapTextToLines(item.name.trim() || "—", LABEL_WIDTH - 8, FONT_SIZE);
-    const noteLines = (item.note?.trim() ? wrapTextToLines(item.note.trim(), LABEL_WIDTH - 8, FONT_SIZE_NOTE) : []) as string[];
+    if (!item) continue;
+    const subItems = (item.subItems ?? []).filter((s) => s.name?.trim());
+    const nameColWidthLocal = isItemized ? LABEL_WIDTH - 8 : Math.floor(CONTENT_WIDTH_PT * 0.6) - 12;
+    const noteColWidthLocal = isItemized ? LABEL_WIDTH - 8 : CONTENT_WIDTH_PT - nameColWidthLocal - 20;
+    const nameLines = wrapTextToLines(item.name.trim() || "—", nameColWidthLocal, FONT_SIZE);
+    const noteLines = (item.note?.trim() ? wrapTextToLines(item.note.trim(), nameColWidthLocal, FONT_SIZE_NOTE) : []) as string[];
     const nameH = nameLines.length * LINE_HEIGHT_NAME;
     const noteH = noteLines.length * LINE_HEIGHT_NOTE;
     const gap = noteH > 0 ? GAP_NAME_NOTE : 0;
-    const cellH = Math.max(rowHeight, nameH + gap + noteH + ROW_PADDING_TOP + ROW_PADDING_BOTTOM);
-    const netTotal = getItemNetTotal(item);
+    const subH = isItemized ? 0 : subItems.length * (LINE_HEIGHT_NOTE + 2);
+    const cellH = Math.max(rowHeight, nameH + gap + noteH + subH + ROW_PADDING_TOP + ROW_PADDING_BOTTOM);
     const borderY = rowY - cellH - 2;
     page.drawRectangle({
       x: MARGIN_PT,
@@ -488,27 +506,55 @@ export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
       height: 1,
       color: ROW_BORDER,
     });
+    const startY = rowY - ROW_PADDING_TOP;
     for (let i = 0; i < nameLines.length; i++) {
       page.drawText(prepare(nameLines[i]), {
         x: colX[0] + 4,
-        y: rowY - ROW_PADDING_TOP - (i + 1) * LINE_HEIGHT_NAME,
+        y: startY - (i + 1) * LINE_HEIGHT_NAME,
         size: FONT_SIZE,
         font,
       });
     }
-    for (let i = 0; i < noteLines.length; i++) {
-      page.drawText(prepare(noteLines[i]), {
-        x: colX[0] + 4,
-        y: rowY - ROW_PADDING_TOP - nameH - gap - (i + 1) * LINE_HEIGHT_NOTE,
-        size: FONT_SIZE_NOTE,
-        font: fontItalic,
-      });
+    if (isItemized) {
+      let noteY = startY - nameH - gap;
+      for (let i = 0; i < noteLines.length; i++) {
+        page.drawText(prepare(noteLines[i]), {
+          x: colX[0] + 4,
+          y: noteY - (i + 1) * LINE_HEIGHT_NOTE,
+          size: FONT_SIZE_NOTE,
+          font: fontItalic,
+        });
+      }
+    } else {
+      const noteLinesRight = wrapTextToLines(item.note?.trim() ?? "", noteColWidthLocal, FONT_SIZE_NOTE);
+      for (let i = 0; i < noteLinesRight.length; i++) {
+        page.drawText(prepare(noteLinesRight[i]), {
+          x: colX[1] + 4,
+          y: startY - (i + 1) * LINE_HEIGHT_NOTE,
+          size: FONT_SIZE_NOTE,
+          font: fontItalic,
+        });
+      }
+      const subIndent = 12;
+      let subY = startY - nameH - gap;
+      for (let si = 0; si < subItems.length; si++) {
+        const subName = subItems[si].name?.trim() ?? "";
+        page.drawText(prepare(`– ${subName}`), {
+          x: colX[0] + 4 + subIndent,
+          y: subY - (si + 1) * (LINE_HEIGHT_NOTE + 2),
+          size: FONT_SIZE_NOTE,
+          font,
+        });
+      }
     }
-    page.drawText(prepare(String(item.quantity)), { x: colX[1] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
-    page.drawText(prepare(item.unit), { x: colX[2] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
-    page.drawText(prepare(item.netUnitPrice.toLocaleString("hu-HU")), { x: colX[3] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
-    page.drawText(prepare(String(item.vatPercent)), { x: colX[4] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
-    page.drawText(prepare(netTotal.toLocaleString("hu-HU")), { x: colX[5] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+    if (isItemized) {
+      const netTotal = getItemNetTotal(item);
+      page.drawText(prepare(String(item.quantity)), { x: colX[1] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+      page.drawText(prepare(item.unit), { x: colX[2] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+      page.drawText(prepare(item.netUnitPrice.toLocaleString("hu-HU")), { x: colX[3] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+      page.drawText(prepare(String(item.vatPercent)), { x: colX[4] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+      page.drawText(prepare(netTotal.toLocaleString("hu-HU")), { x: colX[5] + 4, y: rowY - cellH / 2 - 4, size: FONT_SIZE, font });
+    }
     y = rowY - cellH - 4;
   }
   y -= SPACE_BEFORE_TOTALS;
@@ -520,9 +566,9 @@ export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
   const summaryWidth = summaryLabelWidth + summaryValueWidth;
   const summaryX = PAGE_WIDTH_PT - MARGIN_PT - summaryWidth;
   const summaryRows: { label: string; value: string; color?: RGB }[] = [
-    { label: "Nettó részösszeg", value: `${netSubtotal.toLocaleString("hu-HU")} Ft` },
-    { label: "ÁFA összesen", value: `${vatTotal.toLocaleString("hu-HU")} Ft` },
-    { label: "Bruttó végösszeg", value: `${grossSubtotal.toLocaleString("hu-HU")} Ft` },
+    { label: "Nettó részösszeg", value: `${effectiveNet.toLocaleString("hu-HU")} Ft` },
+    { label: "ÁFA összesen", value: `${effectiveVat.toLocaleString("hu-HU")} Ft` },
+    { label: "Bruttó végösszeg", value: `${effectiveGross.toLocaleString("hu-HU")} Ft` },
   ];
   if (hasDiscount && discountPercent > 0) {
     summaryRows.push({
