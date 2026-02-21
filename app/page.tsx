@@ -156,6 +156,7 @@ export default function Home() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [listPdfError, setListPdfError] = useState<string | null>(null);
   const [listPdfLoadingId, setListPdfLoadingId] = useState<string | null>(null);
+  const [offersRefreshKey, setOffersRefreshKey] = useState(0);
 
   useEffect(() => {
     if (view === "wizard" && step === 1 && !data.offerId && !editingOfferId) {
@@ -292,7 +293,10 @@ export default function Home() {
     }
   };
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const handleSave = async () => {
+    setSaveError(null);
     const parsed = formSchema.safeParse(data);
     if (!parsed.success) {
       setErrors(getFieldErrors(parsed.error, data?.items ?? []));
@@ -323,10 +327,13 @@ export default function Home() {
       } else {
         saveNewOffer(payload);
       }
+      setOffersRefreshKey((k) => k + 1);
       setView("list");
       setEditingOfferId(null);
       setData(INITIAL_DATA);
       setStep(0);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Mentés sikertelen");
     } finally {
       setSaveLoading(false);
     }
@@ -337,6 +344,7 @@ export default function Home() {
     setEditingOfferId(offer.id);
     setStep(0);
     setErrors({});
+    setSaveError(null);
     setView("wizard");
   };
 
@@ -402,6 +410,7 @@ export default function Home() {
           </button>
         </nav>
         <OffersList
+          key={offersRefreshKey}
           onEdit={handleEdit}
           onExportPdf={handleExportPdfFromList}
           pdfError={listPdfError}
@@ -468,6 +477,11 @@ export default function Home() {
         {pdfError && step === 4 && (
           <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             {pdfError}
+          </div>
+        )}
+        {saveError && step === 4 && (
+          <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            {saveError}
           </div>
         )}
         {pdfSuccess && step === 4 && (

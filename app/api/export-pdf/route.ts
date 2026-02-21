@@ -31,7 +31,11 @@ export async function POST(request: Request) {
     }
     const data = parsed.data as FormData;
 
-    const pdfBytes = await exportToPdfBytes(data);
+    const baseUrl =
+      process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : request.headers.get("origin") || "http://localhost:3000";
+    const pdfBytes = await exportToPdfBytes(data, baseUrl);
     const filename = safeFilename(data.client, data.offerId);
 
     return new NextResponse(Buffer.from(pdfBytes), {

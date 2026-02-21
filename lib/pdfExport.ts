@@ -39,12 +39,16 @@ const RED = rgb(0.75, 0.1, 0.1);
 const ROW_BORDER = rgb(0.93, 0.93, 0.93);
 const SPACE_BEFORE_TOTALS = 38;
 
-async function loadUnicodeFonts(doc: import("pdf-lib").PDFDocument) {
+async function loadUnicodeFonts(doc: import("pdf-lib").PDFDocument, baseUrl?: string) {
   try {
-    throw new Error("Use Helvetica fallback"); // Unicode font disabled – use readable ASCII
     doc.registerFontkit(fontkit);
-    if (typeof window === "undefined") throw new Error("No window");
-    const base = `${window.location.origin}/api/font/`;
+    const base =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/api/font/`
+        : baseUrl
+          ? `${baseUrl.replace(/\/$/, "")}/api/font/`
+          : "";
+    if (!base) throw new Error("No font base URL");
     const [r1, r2, r3] = await Promise.all([
       fetch(`${base}NotoSans-Regular`),
       fetch(`${base}NotoSans-Bold`),
@@ -233,9 +237,9 @@ function drawTableHeader(
 }
 
 /** Server-safe: returns raw PDF bytes. Use in API routes. */
-export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
+export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const { font, fontBold, fontItalic, useUnicode } = await loadUnicodeFonts(doc);
+  const { font, fontBold, fontItalic, useUnicode } = await loadUnicodeFonts(doc, baseUrl);
   const prepare = (t: string) => prepareText(t, useUnicode);
 
   let page = doc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]);
@@ -273,8 +277,8 @@ export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
     color: rgb(1, 1, 1),
   });
   if (data.offerId) {
-    page.drawText(prepare(`#${data.offerId}`), {
-      x: PAGE_WIDTH_PT - MARGIN_PT - 80,
+    page.drawText(prepare(`Azonosító: #${data.offerId}`), {
+      x: PAGE_WIDTH_PT - MARGIN_PT - 140,
       y: pageHeight - HEADER_BAR_HEIGHT / 2 - 4,
       size: 10,
       font,
@@ -565,43 +569,48 @@ export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
   const summaryFontSize = 12;
   const summaryWidth = summaryLabelWidth + summaryValueWidth;
   const summaryX = PAGE_WIDTH_PT - MARGIN_PT - summaryWidth;
-  const summaryRows: { label: string; value: string; color?: RGB }[] = [
-    { label: "Nettó részösszeg", value: `${effectiveNet.toLocaleString("hu-HU")} Ft` },
-    { label: "ÁFA összesen", value: `${effectiveVat.toLocaleString("hu-HU")} Ft` },
-    { label: "Bruttó végösszeg", value: `${effectiveGross.toLocaleString("hu-HU")} Ft` },
-  ];
-  if (hasDiscount && discountPercent > 0) {
-    summaryRows.push({
-      label: `Kedvezmény (${discountPercent}%)`,
-      value: `-${discountAmount.toLocaleString("hu-HU")} Ft`,
-      color: RED,
-    });
-  }
   const valueXEnd = summaryX + summaryWidth;
   let sumY = y;
-  const rowTextOffset = summaryRowHeight / 2 - summaryFontSize / 2 - 1;
-  summaryRows.forEach((row) => {
-    const valStr = prepare(row.value);
-    const valW = font.widthOfTextAtSize(valStr, summaryFontSize);
-    page.drawText(prepare(row.label), {
-      x: summaryX,
-      y: sumY - rowTextOffset,
-      size: summaryFontSize,
-      font,
-      color: row.color,
-    });
-    page.drawText(valStr, {
-      x: valueXEnd - valW - 8,
-      y: sumY - rowTextOffset,
-      size: summaryFontSize,
-      font,
-      color: row.color,
-    });
-    sumY -= summaryRowHeight;
-  });
-  y = sumY - 6;
 
-  const finalLabel = hasDiscount && discountPercent > 0 ? "Végösszeg kedvezmény után" : "Végösszeg";
+  if (isItemized) {
+    const summaryRows: { label: string; value: string; color?: RGB }[] = [
+      { label: "Nettó részösszeg", value: `${effectiveNet.toLocaleString("hu-HU")} Ft` },
+      { label: "ÁFA összesen", value: `${effectiveVat.toLocaleString("hu-HU")} Ft` },
+      { label: "Bruttó végösszeg", value: `${effectiveGross.toLocaleString("hu-HU")} Ft` },
+    ];
+    if (hasDiscount && discountPercent > 0) {
+      summaryRows.push({
+        label: `Kedvezmény (${discountPercent}%)`,
+        value: `-${discountAmount.toLocaleString("hu-HU")} Ft`,
+        color: RED,
+      });
+    }
+    const rowTextOffset = summaryRowHeight / 2 - summaryFontSize / 2 - 1;
+    summaryRows.forEach((row) => {
+      const valStr = prepare(row.value);
+      const valW = font.widthOfTextAtSize(valStr, summaryFontSize);
+      page.drawText(prepare(row.label), {
+        x: summaryX,
+        y: sumY - rowTextOffset,
+        size: summaryFontSize,
+        font,
+        color: row.color,
+      });
+      page.drawText(valStr, {
+        x: valueXEnd - valW - 8,
+        y: sumY - rowTextOffset,
+        size: summaryFontSize,
+        font,
+        color: row.color,
+      });
+      sumY -= summaryRowHeight;
+    });
+    y = sumY - 6;
+  }
+
+  const finalLabel = isItemized
+    ? (hasDiscount && discountPercent > 0 ? "Végösszeg kedvezmény után" : "Végösszeg")
+    : "Nettó végösszeg";
   const finalValue = `${finalTotal.toLocaleString("hu-HU")} Ft`;
   const finalValStr = prepare(finalValue);
   const finalBarHeight = 26;
@@ -631,7 +640,10 @@ export async function exportToPdfBytes(data: FormData): Promise<Uint8Array> {
   y -= finalBarHeight + 4;
 
   const priceDisclaimer = data.priceDisclaimer ?? "labor_only";
-  const disclaimerText = priceDisclaimer === "material_and_labor" ? "Az árak anyag és munka díjat tartalmaznak." : "Az árak csak a munkadíjat tartalmazzák, az anyagköltséget külön számlázzuk.";
+  const disclaimerText =
+    priceDisclaimer === "material_and_labor"
+      ? "Az ár tartalmazza az anyagköltséget és a munkadíjat is."
+      : "Az ár csak a munkadíjra vonatkozik.";
   page.drawText(prepare(disclaimerText), {
     x: MARGIN_PT,
     y: y - 14,
