@@ -514,7 +514,6 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
       rowY = y - rowHeight;
       tableTopForBorder = newHeaderY + 2;
       tableSectionBottom = rowY - 2;
-      hadTablePageBreak = true;
     }
     if (isRoomHeader) {
       const room = rooms.find((r) => r.id === itemId);
