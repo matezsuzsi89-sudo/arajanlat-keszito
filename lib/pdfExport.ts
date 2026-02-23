@@ -446,19 +446,23 @@ export async function exportToPdfBytes(
 
   const col2X = Math.floor(CONTENT_WIDTH_PT / 2);
   const roomColWForCheck = col2X - 20;
-  const tableItems = items.filter((i) => !isEmptyItem(i));
   const rooms = getRoomsInOrder(data.rooms ?? []);
-  const groups = groupItemsByRoom(tableItems, rooms);
-  const allItemIds: string[] = [];
-  for (const g of groups) {
-    if (g.items.length === 0) continue;
-    const room = g.roomId ? rooms.find((r) => r.id === g.roomId) : null;
-    if (g.roomId && room) {
-      const roomText = isItemized ? (room.name ?? "") : (room.name ?? "").toUpperCase();
-      const wouldRender = wrapTextToLines(roomText.trim(), roomColWForCheck, isItemized ? 10 : FONT_SIZE_ROOM).length > 0;
-      if (wouldRender && hasContent(room.name)) allItemIds.push(g.roomId);
+  const displayGroups = groupItemsByRoom(items, rooms)
+    .map((g) => ({ ...g, items: g.items.filter((i) => !isEmptyItem(i)) }))
+    .filter((g) => g.items.length > 0);
+  const filteredIds: string[] = [];
+  for (const g of displayGroups) {
+    const showRoomHeader = (rooms.length > 0 || g.roomName !== "Egyéb") && hasContent(g.roomName);
+    if (showRoomHeader && g.roomId) {
+      const room = rooms.find((r) => r.id === g.roomId);
+      if (room) {
+        const rt = (room.name ?? "").trim();
+        if (rt && wrapTextToLines(isItemized ? rt : rt.toUpperCase(), roomColWForCheck, isItemized ? 10 : FONT_SIZE_ROOM).length > 0) {
+          filteredIds.push(g.roomId);
+        }
+      }
     }
-    allItemIds.push(...g.items.map((i) => i.id));
+    filteredIds.push(...g.items.map((i) => i.id));
   }
   const wouldRenderEmpty = (id: string): boolean => {
     if (rooms.some((r) => r.id === id)) {
@@ -472,7 +476,6 @@ export async function exportToPdfBytes(
     if (!it) return true;
     return isEmptyItem(it);
   };
-  const filteredIds = allItemIds.filter((id) => !wouldRenderEmpty(id));
   const rowHeights = computeRowHeights(items, filteredIds, rooms, isItemized);
   const tableTopY = y;
   const headerBg = accentColor;
