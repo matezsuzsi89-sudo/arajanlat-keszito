@@ -118,10 +118,11 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 function wrapTextToLines(
   text: string,
   maxWidthPt: number,
-  fontSize: number
+  fontSize: number,
+  charWidthFactor = 0.48
 ): string[] {
   if (!text.trim()) return [];
-  const approxCharWidth = fontSize * 0.48;
+  const approxCharWidth = fontSize * charWidthFactor;
   const charsPerLine = Math.max(1, Math.floor(maxWidthPt / approxCharWidth));
   const allLines: string[] = [];
   const paragraphs = text.trim().split(/\r?\n/);
@@ -210,7 +211,7 @@ function computeRowHeights(
   const result: Record<string, number> = {};
   const roomIds = new Set(rooms.map((r) => r.id));
   const nameColWidth = isItemized ? LABEL_WIDTH - 8 : Math.floor(CONTENT_WIDTH_PT / 2) - 20;
-  const roomColW = isItemized ? CONTENT_WIDTH_PT : Math.floor(CONTENT_WIDTH_PT / 2) - 20;
+  const roomColW = isItemized ? CONTENT_WIDTH_PT : Math.floor(CONTENT_WIDTH_PT / 2) - 36;
   for (const id of allItemIds) {
     if (roomIds.has(id)) {
       const room = rooms.find((r) => r.id === id);
@@ -449,10 +450,10 @@ export async function exportToPdfBytes(
   }
 
   const col2X = Math.floor(CONTENT_WIDTH_PT / 2);
-  const roomColWForCheck = col2X - 20;
+  const roomColWForCheck = col2X - 36;
   const rooms = getRoomsInOrder(data.rooms ?? []);
-  const displayGroups = groupItemsByRoom(items, rooms)
-    .map((g) => ({ ...g, items: g.items.filter((i) => !isEmptyItem(i)) }))
+  const filteredItems = items.filter((i) => !isEmptyItem(i));
+  const displayGroups = groupItemsByRoom(filteredItems, rooms)
     .filter((g) => g.items.length > 0);
   const filteredIds: string[] = [];
   for (const g of displayGroups) {
@@ -514,14 +515,10 @@ export async function exportToPdfBytes(
       thickness: 0.5,
       color: rgb(1, 1, 1),
     });
-    page.drawLine({
-      start: { x: MARGIN_PT, y: headerY - HEADER_ROW_HEIGHT - 2 },
-      end: { x: MARGIN_PT + CONTENT_WIDTH_PT, y: headerY - HEADER_ROW_HEIGHT - 2 },
-      thickness: 0.8,
-      color: TABLE_BORDER,
-    });
   }
-  y = headerY - HEADER_ROW_HEIGHT - 2;
+  const headerBottomY = headerY - 2 - (HEADER_ROW_HEIGHT + 4);
+  const firstRowH = filteredIds.length > 0 ? (rowHeights[filteredIds[0]] ?? 20) : 20;
+  y = headerBottomY - 4 + firstRowH;
   let nonItemizedRowIndex = 0;
   let tableTopForBorder = tableTopY;
   let tableSectionBottom = y;
@@ -540,8 +537,7 @@ export async function exportToPdfBytes(
         if (tblT > tblB) {
           page.drawLine({ start: { x: tblL, y: tblB }, end: { x: tblR, y: tblB }, thickness: bt, color: TABLE_BORDER });
           page.drawLine({ start: { x: tblR, y: tblB }, end: { x: tblR, y: tblT }, thickness: bt, color: TABLE_BORDER });
-          page.drawLine({ start: { x: tblR, y: tblT }, end: { x: tblL, y: tblT }, thickness: bt, color: TABLE_BORDER });
-          page.drawLine({ start: { x: tblL, y: tblT }, end: { x: tblL, y: tblB }, thickness: bt, color: TABLE_BORDER });
+          page.drawLine({ start: { x: tblL, y: tblB }, end: { x: tblL, y: tblT }, thickness: bt, color: TABLE_BORDER });
           page.drawLine({ start: { x: tblL + col2X, y: tblB }, end: { x: tblL + col2X, y: tblT }, thickness: bt, color: TABLE_BORDER });
         }
       }
@@ -559,14 +555,9 @@ export async function exportToPdfBytes(
           thickness: 0.5,
           color: rgb(1, 1, 1),
         });
-        page.drawLine({
-          start: { x: MARGIN_PT, y: newHeaderY - HEADER_ROW_HEIGHT - 2 },
-          end: { x: MARGIN_PT + CONTENT_WIDTH_PT, y: newHeaderY - HEADER_ROW_HEIGHT - 2 },
-          thickness: 0.8,
-          color: TABLE_BORDER,
-        });
       }
-      y = ph - MARGIN_PT - HEADER_ROW_HEIGHT - 4;
+      const newHeaderBottomY = newHeaderY - 2 - (HEADER_ROW_HEIGHT + 4);
+      y = newHeaderBottomY - 4 + rowHeight;
       rowY = y - rowHeight;
       tableTopForBorder = newHeaderY + 2;
       tableSectionBottom = rowY - 2;
@@ -574,9 +565,9 @@ export async function exportToPdfBytes(
     if (isRoomHeader) {
       const room = rooms.find((r) => r.id === itemId);
       if (!room || wouldRenderEmpty(itemId)) continue;
-      const roomColW = isItemized ? CONTENT_WIDTH_PT : col2X - 20;
+      const roomColW = isItemized ? CONTENT_WIDTH_PT : col2X - 36;
       const roomText = isItemized ? room.name : (room.name ?? "").toUpperCase();
-      const roomLines = wrapTextToLines((roomText ?? "").trim(), roomColW, isItemized ? FONT_SIZE : FONT_SIZE_ROOM);
+      const roomLines = wrapTextToLines((roomText ?? "").trim(), roomColW, isItemized ? FONT_SIZE : FONT_SIZE_ROOM, isItemized ? 0.48 : 0.56);
       if (roomLines.length === 0) continue;
         const roomBg = isItemized ? rgb(0.98, 0.98, 0.98) : ROOM_GREY;
         page.drawRectangle({
@@ -703,14 +694,12 @@ export async function exportToPdfBytes(
   if (!isItemized && tableTopForBorder > tableSectionBottom) {
     const tblL = MARGIN_PT;
     const tblR = MARGIN_PT + CONTENT_WIDTH_PT;
-    const tblT = tableTopForBorder + 2;
     const tblB = tableSectionBottom;
     const bt = 0.8;
     page.drawLine({ start: { x: tblL, y: tblB }, end: { x: tblR, y: tblB }, thickness: bt, color: TABLE_BORDER });
-    page.drawLine({ start: { x: tblR, y: tblB }, end: { x: tblR, y: tblT }, thickness: bt, color: TABLE_BORDER });
-    page.drawLine({ start: { x: tblR, y: tblT }, end: { x: tblL, y: tblT }, thickness: bt, color: TABLE_BORDER });
-    page.drawLine({ start: { x: tblL, y: tblT }, end: { x: tblL, y: tblB }, thickness: bt, color: TABLE_BORDER });
-    page.drawLine({ start: { x: tblL + col2X, y: tblB }, end: { x: tblL + col2X, y: tblT }, thickness: bt, color: TABLE_BORDER });
+    page.drawLine({ start: { x: tblR, y: tblB }, end: { x: tblR, y: tableTopForBorder + 2 }, thickness: bt, color: TABLE_BORDER });
+    page.drawLine({ start: { x: tblL, y: tblB }, end: { x: tblL, y: tableTopForBorder + 2 }, thickness: bt, color: TABLE_BORDER });
+    page.drawLine({ start: { x: tblL + col2X, y: tblB }, end: { x: tblL + col2X, y: tableTopForBorder + 2 }, thickness: bt, color: TABLE_BORDER });
   }
   y -= SPACE_BEFORE_TOTALS;
 
