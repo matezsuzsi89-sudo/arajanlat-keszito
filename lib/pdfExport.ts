@@ -17,6 +17,7 @@ import {
   getRoomsInOrder,
   groupItemsByRoom,
   isEmptyItem,
+  hasContent,
 } from "./schema";
 
 const FONT_SIZE = 10;
@@ -457,7 +458,8 @@ export async function exportToPdfBytes(
   for (const g of groups) {
     const nonEmpty = g.items.filter((i) => !isEmptyItem(i));
     if (nonEmpty.length === 0) continue;
-    if (g.roomId) allItemIds.push(g.roomId);
+    const room = g.roomId ? rooms.find((r) => r.id === g.roomId) : null;
+    if (g.roomId && room && hasContent(room.name)) allItemIds.push(g.roomId);
     allItemIds.push(...nonEmpty.map((i) => i.id));
   }
   const rowHeights = computeRowHeights(items, allItemIds, rooms, isItemized);

@@ -155,19 +155,22 @@ export function getRoomsInOrder(rooms: RoomData[]): RoomData[] {
   });
 }
 
+/** Eldönti, hogy egy szövegnek van-e látható tartalma (nem üres, nem csak placeholder). */
+export function hasContent(s: string | undefined): boolean {
+  const t = (s ?? "")
+    .trim()
+    .replace(/[\u200B\u200C\u200D\uFEFF\u00A0\u00AD]/g, "")
+    .replace(/\s/g, "");
+  return t.length > 0 && t !== "—" && t !== "–" && t !== "-";
+}
+
 /** Eldönti, hogy egy tétel üresnek tekintendő-e (nincs látható tartalom). */
 export function isEmptyItem(item: ItemData): boolean {
-  const hasContent = (s: string | undefined) => {
-    const t = (s ?? "")
-      .trim()
-      .replace(/[\u200B\u200C\u200D\uFEFF\u00A0\u00AD]/g, "")
-      .replace(/\s/g, "");
-    return t.length > 0 && t !== "—" && t !== "–" && t !== "-";
-  };
+  const check = hasContent;
   return (
-    !hasContent(item.name) &&
-    !hasContent(item.note) &&
-    (!item.subItems || item.subItems.every((s) => !hasContent(s.name)))
+    !check(item.name) &&
+    !check(item.note) &&
+    (!item.subItems || item.subItems.every((s) => !check(s.name)))
   );
 }
 

@@ -10,6 +10,7 @@ import {
   getItemGrossTotal,
   groupItemsByRoom,
   isEmptyItem,
+  hasContent,
 } from "@/lib/schema";
 import PdfDesignEditor from "./PdfDesignEditor";
 
@@ -156,7 +157,7 @@ export default function Summary({
               .filter((group) => group.items.length > 0)
               .map((group) => (
               <Fragment key={group.roomId ?? "uncat"}>
-                {(rooms.length > 0 || group.roomName !== "Egyéb") && (
+                {(rooms.length > 0 || group.roomName !== "Egyéb") && hasContent(group.roomName) && (
                   <tr className="bg-gray-100">
                     <td
                       colSpan={isItemized ? 8 : 2}
