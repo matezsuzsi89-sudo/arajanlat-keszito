@@ -17,6 +17,26 @@ async function loadTemplate(): Promise<string> {
   return readFileSync(p, "utf-8");
 }
 
+function loadEmbeddedFontCss(): string {
+  const dir = join(process.cwd(), "public", "fonts");
+  const files = [
+    { file: "NotoSans-Regular.ttf", weight: "400", style: "normal" },
+    { file: "NotoSans-Bold.ttf", weight: "700", style: "normal" },
+    { file: "NotoSans-Italic.ttf", weight: "400", style: "italic" },
+  ] as const;
+  const rules: string[] = [];
+  for (const { file, weight, style } of files) {
+    const path = join(dir, file);
+    if (!existsSync(path)) continue;
+    const buf = readFileSync(path);
+    const base64 = Buffer.from(buf).toString("base64");
+    rules.push(
+      `@font-face{font-family:'Noto Sans';font-weight:${weight};font-style:${style};src:url(data:font/ttf;base64,${base64}) format('truetype');}`
+    );
+  }
+  return rules.length > 0 ? `<style>${rules.join("")}</style>` : "";
+}
+
 /**
  * HTML string-ből PDF byte array Puppeteerrel.
  * @sparticuz/chromium + puppeteer-core – Vercel serverless kompatibilis.
@@ -55,6 +75,8 @@ export async function htmlToPdfBytes(html: string): Promise<Uint8Array> {
  */
 export async function exportQuoteToPdfBytes(data: FormData): Promise<Uint8Array> {
   const templateHtml = await loadTemplate();
-  const html = generateQuoteHtml(data, templateHtml);
+  let html = generateQuoteHtml(data, templateHtml);
+  const fontCss = loadEmbeddedFontCss();
+  html = html.replace("{{EMBEDDED_FONT_CSS}}", fontCss);
   return htmlToPdfBytes(html);
 }
