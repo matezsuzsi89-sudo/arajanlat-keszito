@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{headerTitle}}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     @page { margin-top: 15mm; margin-bottom: 15mm; }
@@ -11,7 +12,7 @@
     body {
       margin: 0;
       padding: 0;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: 'Inter', Arial, Helvetica, sans-serif;
       text-rendering: optimizeLegibility;
       font-size: 10pt;
       line-height: 1.4;
@@ -59,6 +60,8 @@
       table-layout: fixed;
       border-collapse: collapse;
       margin: 10px 0;
+      font-feature-settings: "tnum";
+      font-variant-numeric: tabular-nums;
     }
     th {
       background: {{accentColor}};
@@ -78,6 +81,8 @@
       text-align: right;
       vertical-align: top;
       line-height: 1.2;
+      font-feature-settings: "tnum";
+      font-variant-numeric: tabular-nums;
     }
     td:first-child { text-align: left; }
     tr:nth-child(even) { background: #fafafa; }

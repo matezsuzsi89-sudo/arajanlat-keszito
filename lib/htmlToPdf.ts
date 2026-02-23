@@ -32,10 +32,12 @@ export async function htmlToPdfBytes(html: string): Promise<Uint8Array> {
   });
   try {
     const page = await browser.newPage();
+    await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 2 });
     await page.setContent(html, {
       waitUntil: "networkidle0",
       timeout: 15000,
     });
+    await page.evaluate(() => document.fonts.ready);
     await new Promise((r) => setTimeout(r, 150));
     const pdf = await page.pdf({
       format: "A4",
