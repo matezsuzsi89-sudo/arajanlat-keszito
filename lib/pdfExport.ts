@@ -578,7 +578,6 @@ export async function exportToPdfBytes(
             font: fontBold,
           });
         }
-      }
       if (!isItemized) nonItemizedRowIndex++;
       y = rowY - 2;
       continue;
