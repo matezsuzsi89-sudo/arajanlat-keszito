@@ -460,7 +460,16 @@ export async function exportToPdfBytes(
     }
     allItemIds.push(...g.items.map((i) => i.id));
   }
-  const filteredIds = allItemIds;
+  const filteredIds = allItemIds.filter((id) => {
+    if (rooms.some((r) => r.id === id)) {
+      const r = rooms.find((room) => room.id === id)!;
+      const roomText = (r.name ?? "").trim();
+      if (!roomText || !hasContent(r.name)) return false;
+      const rt = isItemized ? roomText : roomText.toUpperCase();
+      return wrapTextToLines(rt, roomColWForCheck, isItemized ? 10 : FONT_SIZE_ROOM).length > 0;
+    }
+    return true;
+  });
   const rowHeights = computeRowHeights(items, filteredIds, rooms, isItemized);
   const tableTopY = y;
   const headerBg = accentColor;
@@ -543,6 +552,10 @@ export async function exportToPdfBytes(
     if (isRoomHeader) {
       const room = rooms.find((r) => r.id === itemId);
       if (room) {
+        const roomColW = isItemized ? CONTENT_WIDTH_PT : col2X - 20;
+        const roomText = isItemized ? room.name : (room.name ?? "").toUpperCase();
+        const roomLines = wrapTextToLines((roomText ?? "").trim(), roomColW, isItemized ? FONT_SIZE : FONT_SIZE_ROOM);
+        if (roomLines.length === 0) continue;
         const roomBg = isItemized ? rgb(0.98, 0.98, 0.98) : ROOM_GREY;
         page.drawRectangle({
           x: MARGIN_PT,
@@ -552,9 +565,6 @@ export async function exportToPdfBytes(
           color: roomBg,
         });
         const roomFontSize = isItemized ? FONT_SIZE : FONT_SIZE_ROOM;
-        const roomText = isItemized ? room.name : (room.name ?? "").toUpperCase();
-        const roomColW = isItemized ? CONTENT_WIDTH_PT : col2X - 20;
-        const roomLines = wrapTextToLines(roomText, roomColW, roomFontSize);
         const roomLineH = roomFontSize + 1;
         let roomDrawY = rowY - ROW_PADDING_TOP;
         for (let ri = 0; ri < roomLines.length; ri++) {
@@ -572,6 +582,8 @@ export async function exportToPdfBytes(
     }
     if (!item) continue;
     const subItems = (item.subItems ?? []).filter((s) => s.name?.trim());
+    const wouldShowOnlyPlaceholder = !hasContent(item.name) && !hasContent(item.note) && subItems.length === 0;
+    if (wouldShowOnlyPlaceholder) continue;
     const nameColWidthLocal = isItemized ? LABEL_WIDTH - 8 : col2X - 20;
     const noteColWidthLocal = isItemized ? LABEL_WIDTH - 8 : col2X - 20;
     const nameLines = wrapTextToLines(item.name.trim() || "—", nameColWidthLocal, FONT_SIZE);
