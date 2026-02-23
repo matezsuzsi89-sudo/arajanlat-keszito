@@ -364,14 +364,6 @@ export async function exportToPdfBytes(
   const leftX = MARGIN_PT;
   const rightX = MARGIN_PT + colWidth + 20;
 
-  page.drawText(prepare(`Dátum: ${new Date().toLocaleDateString("hu-HU")}`), {
-    x: leftX,
-    y,
-    size: FONT_SIZE,
-    font,
-  });
-  y -= 18;
-
   let leftY = y;
   let rightY = y;
 
