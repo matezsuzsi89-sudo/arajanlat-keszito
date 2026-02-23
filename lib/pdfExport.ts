@@ -514,6 +514,12 @@ export async function exportToPdfBytes(
       thickness: 0.5,
       color: rgb(1, 1, 1),
     });
+    page.drawLine({
+      start: { x: MARGIN_PT, y: headerY - HEADER_ROW_HEIGHT - 2 },
+      end: { x: MARGIN_PT + CONTENT_WIDTH_PT, y: headerY - HEADER_ROW_HEIGHT - 2 },
+      thickness: 0.8,
+      color: TABLE_BORDER,
+    });
   }
   y = headerY - HEADER_ROW_HEIGHT - 2;
   let nonItemizedRowIndex = 0;
@@ -553,6 +559,12 @@ export async function exportToPdfBytes(
           thickness: 0.5,
           color: rgb(1, 1, 1),
         });
+        page.drawLine({
+          start: { x: MARGIN_PT, y: newHeaderY - HEADER_ROW_HEIGHT - 2 },
+          end: { x: MARGIN_PT + CONTENT_WIDTH_PT, y: newHeaderY - HEADER_ROW_HEIGHT - 2 },
+          thickness: 0.8,
+          color: TABLE_BORDER,
+        });
       }
       y = ph - MARGIN_PT - HEADER_ROW_HEIGHT - 4;
       rowY = y - rowHeight;
@@ -574,6 +586,12 @@ export async function exportToPdfBytes(
           height: rowHeight + 4,
           color: roomBg,
         });
+        if (!isItemized) {
+          const roomTop = rowY - 2 + rowHeight + 4;
+          const roomBottom = rowY - 2;
+          page.drawLine({ start: { x: MARGIN_PT, y: roomTop }, end: { x: MARGIN_PT + CONTENT_WIDTH_PT, y: roomTop }, thickness: 0.8, color: TABLE_BORDER });
+          page.drawLine({ start: { x: MARGIN_PT, y: roomBottom }, end: { x: MARGIN_PT + CONTENT_WIDTH_PT, y: roomBottom }, thickness: 0.8, color: TABLE_BORDER });
+        }
         const roomFontSize = isItemized ? FONT_SIZE : FONT_SIZE_ROOM;
         const roomLineH = roomFontSize + 1;
         let roomDrawY = rowY - ROW_PADDING_TOP;
@@ -613,13 +631,19 @@ export async function exportToPdfBytes(
       height: cellH + 4,
       color: rowBg,
     });
-    page.drawRectangle({
-      x: MARGIN_PT,
-      y: borderY,
-      width: CONTENT_WIDTH_PT,
-      height: 1,
-      color: ROW_BORDER,
-    });
+    if (!isItemized) {
+      page.drawLine({ start: { x: MARGIN_PT, y: borderY }, end: { x: MARGIN_PT + CONTENT_WIDTH_PT, y: borderY }, thickness: 0.8, color: TABLE_BORDER });
+      page.drawLine({ start: { x: MARGIN_PT, y: borderY + cellH + 4 }, end: { x: MARGIN_PT + CONTENT_WIDTH_PT, y: borderY + cellH + 4 }, thickness: 0.8, color: TABLE_BORDER });
+      page.drawLine({ start: { x: MARGIN_PT + col2X, y: borderY }, end: { x: MARGIN_PT + col2X, y: borderY + cellH + 4 }, thickness: 0.8, color: TABLE_BORDER });
+    } else {
+      page.drawRectangle({
+        x: MARGIN_PT,
+        y: borderY,
+        width: CONTENT_WIDTH_PT,
+        height: 1,
+        color: ROW_BORDER,
+      });
+    }
     const startY = rowY - ROW_PADDING_TOP;
     for (let i = 0; i < nameLines.length; i++) {
       page.drawText(prepare(nameLines[i]), {
