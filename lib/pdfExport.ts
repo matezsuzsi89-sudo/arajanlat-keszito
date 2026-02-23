@@ -452,10 +452,14 @@ export async function exportToPdfBytes(
 
   const rooms = getRoomsInOrder(data.rooms ?? []);
   const groups = groupItemsByRoom(items, rooms);
+  const hasContent = (s: string | undefined) => {
+    const t = (s ?? "").trim().replace(/\u200B|\u200C|\u200D|\uFEFF/g, "");
+    return t.length > 0 && t !== "—" && t !== "–" && t !== "-";
+  };
   const isEmptyItem = (item: ItemData) =>
-    !(item.name?.trim()) &&
-    !(item.note?.trim()) &&
-    (!item.subItems || item.subItems.every((s) => !s.name?.trim()));
+    !hasContent(item.name) &&
+    !hasContent(item.note) &&
+    (!item.subItems || item.subItems.every((s) => !hasContent(s.name)));
   const allItemIds: string[] = [];
   for (const g of groups) {
     const nonEmpty = g.items.filter((i) => !isEmptyItem(i));

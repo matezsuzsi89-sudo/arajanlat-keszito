@@ -297,30 +297,47 @@ export default function Home() {
 
   const handleSave = async () => {
     setSaveError(null);
-    const parsed = formSchema.safeParse(data);
-    if (!parsed.success) {
-      setErrors(getFieldErrors(parsed.error, data?.items ?? []));
+    const hasContent = (s: string | undefined) => {
+      const t = (s ?? "").trim().replace(/\u200B|\u200C|\u200D|\uFEFF/g, "");
+      return t.length > 0 && t !== "—" && t !== "–" && t !== "-";
+    };
+    const nonEmptyItems = (data.items ?? []).filter(
+      (i) =>
+        hasContent(i.name) ||
+        hasContent(i.note) ||
+        (i.subItems ?? []).some((s) => hasContent(s.name))
+    );
+    if (nonEmptyItems.length === 0) {
+      setSaveError("Legalább egy kitöltött tétel szükséges a mentéshez. Töltse ki a tétel nevét vagy megjegyzését.");
       setStep(STEPS.length - 1);
+      return;
+    }
+    const dataToValidate = { ...data, items: nonEmptyItems };
+    const parsed = formSchema.safeParse(dataToValidate);
+    if (!parsed.success) {
+      setErrors(getFieldErrors(parsed.error, nonEmptyItems));
+      setStep(STEPS.length - 1);
+      setSaveError("Kérjük, töltse ki a kötelező mezőket (cégadatok, megrendelő, tételek).");
       return;
     }
     setSaveLoading(true);
     try {
       const offerId = data.offerId ?? getNextOfferId();
       const payload = {
-        company: data.company,
-        client: data.client,
+        company: parsed.data.company,
+        client: parsed.data.client,
         offerId,
-        generalNote: data.generalNote,
-        validityExpiry: data.validityExpiry || undefined,
-        items: data.items,
-        hasDiscount: data.hasDiscount,
-        discountPercent: data.discountPercent ?? 0,
-        pdfDesign: data.pdfDesign,
-        isItemized: data.isItemized ?? true,
-        rooms: data.rooms,
-        manualNetTotal: data.manualNetTotal,
-        manualGrossTotal: data.manualGrossTotal,
-        priceDisclaimer: data.priceDisclaimer ?? "labor_only",
+        generalNote: parsed.data.generalNote,
+        validityExpiry: parsed.data.validityExpiry || undefined,
+        items: parsed.data.items,
+        hasDiscount: parsed.data.hasDiscount,
+        discountPercent: parsed.data.discountPercent ?? 0,
+        pdfDesign: parsed.data.pdfDesign,
+        isItemized: parsed.data.isItemized ?? true,
+        rooms: parsed.data.rooms,
+        manualNetTotal: parsed.data.manualNetTotal,
+        manualGrossTotal: parsed.data.manualGrossTotal,
+        priceDisclaimer: parsed.data.priceDisclaimer ?? "labor_only",
       };
       if (editingOfferId) {
         updateOffer(editingOfferId, payload);
