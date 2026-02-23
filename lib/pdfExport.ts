@@ -454,7 +454,15 @@ export async function exportToPdfBytes(
     if (g.roomId && room && hasContent(room.name)) allItemIds.push(g.roomId);
     allItemIds.push(...nonEmpty.map((i) => i.id));
   }
-  const rowHeights = computeRowHeights(items, allItemIds, rooms, isItemized);
+  const filteredIds = allItemIds.filter((id) => {
+    if (rooms.some((r) => r.id === id)) {
+      const r = rooms.find((room) => room.id === id);
+      return r && hasContent(r.name);
+    }
+    const it = items.find((i) => i.id === id);
+    return it && !isEmptyItem(it);
+  });
+  const rowHeights = computeRowHeights(items, filteredIds, rooms, isItemized);
   const tableTopY = y;
   const headerBg = accentColor;
   const headerY = tableTopY - HEADER_ROW_HEIGHT;
@@ -494,7 +502,7 @@ export async function exportToPdfBytes(
   let nonItemizedRowIndex = 0;
   let tableTopForBorder = tableTopY;
   let tableSectionBottom = y;
-  for (const itemId of allItemIds) {
+  for (const itemId of filteredIds) {
     const isRoomHeader = rooms.some((r) => r.id === itemId);
     const item = isRoomHeader ? null : items.find((i) => i.id === itemId);
     const rowHeight = rowHeights[itemId] ?? 20;
