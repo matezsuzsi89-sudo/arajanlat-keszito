@@ -515,10 +515,15 @@ export async function exportToPdfBytes(
       thickness: 0.5,
       color: rgb(1, 1, 1),
     });
+    const headerBottomY = headerY - 2;
+    page.drawLine({
+      start: { x: MARGIN_PT, y: headerBottomY },
+      end: { x: MARGIN_PT + CONTENT_WIDTH_PT, y: headerBottomY },
+      thickness: 0.8,
+      color: TABLE_BORDER,
+    });
   }
-  const headerBottomY = headerY - 2 - (HEADER_ROW_HEIGHT + 4);
-  const firstRowH = filteredIds.length > 0 ? (rowHeights[filteredIds[0]] ?? 20) : 20;
-  y = headerBottomY - 4 + firstRowH;
+  y = headerY - HEADER_ROW_HEIGHT - 2;
   let nonItemizedRowIndex = 0;
   let tableTopForBorder = tableTopY;
   let tableSectionBottom = y;
@@ -556,8 +561,7 @@ export async function exportToPdfBytes(
           color: rgb(1, 1, 1),
         });
       }
-      const newHeaderBottomY = newHeaderY - 2 - (HEADER_ROW_HEIGHT + 4);
-      y = newHeaderBottomY - 4 + rowHeight;
+      y = newHeaderY - HEADER_ROW_HEIGHT - 4;
       rowY = y - rowHeight;
       tableTopForBorder = newHeaderY + 2;
       tableSectionBottom = rowY - 2;
