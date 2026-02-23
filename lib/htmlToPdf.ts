@@ -18,14 +18,18 @@ async function loadTemplate(): Promise<string> {
 
 /**
  * HTML string-ből PDF byte array Puppeteerrel.
- * Vercel deploy-nál esetleg @sparticuz/chromium + puppeteer-core szükséges.
+ * @sparticuz/chromium + puppeteer-core – Vercel serverless kompatibilis.
  */
 export async function htmlToPdfBytes(html: string): Promise<Uint8Array> {
-  // Dinamikus import – Puppeteer csak PDF exportnál kell
-  const puppeteer = await import("puppeteer");
+  const puppeteer = await import("puppeteer-core");
+  const chromium = await import("@sparticuz/chromium");
+  const chrom = (chromium as { default?: typeof chromium }).default ?? chromium;
+
   const browser = await puppeteer.default.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: chrom.args,
+    defaultViewport: null,
+    executablePath: await chrom.executablePath(),
+    headless: chrom.headless ?? true,
   });
   try {
     const page = await browser.newPage();
