@@ -155,6 +155,22 @@ export function getRoomsInOrder(rooms: RoomData[]): RoomData[] {
   });
 }
 
+/** Eldönti, hogy egy tétel üresnek tekintendő-e (nincs látható tartalom). */
+export function isEmptyItem(item: ItemData): boolean {
+  const hasContent = (s: string | undefined) => {
+    const t = (s ?? "")
+      .trim()
+      .replace(/[\u200B\u200C\u200D\uFEFF\u00A0\u00AD]/g, "")
+      .replace(/\s/g, "");
+    return t.length > 0 && t !== "—" && t !== "–" && t !== "-";
+  };
+  return (
+    !hasContent(item.name) &&
+    !hasContent(item.note) &&
+    (!item.subItems || item.subItems.every((s) => !hasContent(s.name)))
+  );
+}
+
 /** Csoportosítja a tételeket helyiség szerint. A helyiségek létrehozási sorrendjében jelennek meg, a helyiség nélküli tételek az Egyéb csoportban a végén. */
 export function groupItemsByRoom(
   items: ItemData[],

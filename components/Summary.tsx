@@ -9,6 +9,7 @@ import {
   getItemNetTotal,
   getItemGrossTotal,
   groupItemsByRoom,
+  isEmptyItem,
 } from "@/lib/schema";
 import PdfDesignEditor from "./PdfDesignEditor";
 
@@ -147,7 +148,13 @@ export default function Summary({
             </tr>
           </thead>
           <tbody>
-            {groupItemsByRoom(items, rooms).map((group) => (
+            {groupItemsByRoom(items, rooms)
+              .map((group) => ({
+                ...group,
+                items: group.items.filter((i) => !isEmptyItem(i)),
+              }))
+              .filter((group) => group.items.length > 0)
+              .map((group) => (
               <Fragment key={group.roomId ?? "uncat"}>
                 {(rooms.length > 0 || group.roomName !== "Egyéb") && (
                   <tr className="bg-gray-100">

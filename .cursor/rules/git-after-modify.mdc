@@ -1,0 +1,18 @@
+---
+description: Minden módosítás után írd meg a Git parancsokat
+alwaysApply: true
+---
+
+# Git parancsok módosítások után
+
+Ha bármilyen fájlt módosítasz a projektben, **mindig írd meg** a megfelelő Git parancsokat a válasz végén.
+
+Példa:
+
+```bash
+git add .
+git commit -m "Rövid leírás a változtatásról"
+git push
+```
+
+A commit üzenet legyen magyar nyelven, rövid és lényegre törő.

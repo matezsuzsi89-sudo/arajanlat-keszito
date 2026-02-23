@@ -16,6 +16,7 @@ import {
   getFinalTotal,
   getRoomsInOrder,
   groupItemsByRoom,
+  isEmptyItem,
 } from "./schema";
 
 const FONT_SIZE = 10;
@@ -452,17 +453,6 @@ export async function exportToPdfBytes(
 
   const rooms = getRoomsInOrder(data.rooms ?? []);
   const groups = groupItemsByRoom(items, rooms);
-  const hasContent = (s: string | undefined) => {
-    const t = (s ?? "")
-      .trim()
-      .replace(/[\u200B\u200C\u200D\uFEFF\u00A0\u00AD]/g, "")
-      .replace(/\s/g, "");
-    return t.length > 0 && t !== "—" && t !== "–" && t !== "-";
-  };
-  const isEmptyItem = (item: ItemData) =>
-    !hasContent(item.name) &&
-    !hasContent(item.note) &&
-    (!item.subItems || item.subItems.every((s) => !hasContent(s.name)));
   const allItemIds: string[] = [];
   for (const g of groups) {
     const nonEmpty = g.items.filter((i) => !isEmptyItem(i));
