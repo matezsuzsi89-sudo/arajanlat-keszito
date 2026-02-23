@@ -444,32 +444,30 @@ export async function exportToPdfBytes(
     y -= noteHeight + 12;
   }
 
+  const col2X = Math.floor(CONTENT_WIDTH_PT / 2);
+  const roomColWForCheck = col2X - 20;
+  const tableItems = items.filter((i) => !isEmptyItem(i));
   const rooms = getRoomsInOrder(data.rooms ?? []);
-  const groups = groupItemsByRoom(items, rooms);
+  const groups = groupItemsByRoom(tableItems, rooms);
   const allItemIds: string[] = [];
   for (const g of groups) {
-    const nonEmpty = g.items.filter((i) => !isEmptyItem(i));
-    if (nonEmpty.length === 0) continue;
+    if (g.items.length === 0) continue;
     const room = g.roomId ? rooms.find((r) => r.id === g.roomId) : null;
-    if (g.roomId && room && hasContent(room.name)) allItemIds.push(g.roomId);
-    allItemIds.push(...nonEmpty.map((i) => i.id));
-  }
-  const filteredIds = allItemIds.filter((id) => {
-    if (rooms.some((r) => r.id === id)) {
-      const r = rooms.find((room) => room.id === id);
-      return r && hasContent(r.name);
+    if (g.roomId && room) {
+      const roomText = isItemized ? (room.name ?? "") : (room.name ?? "").toUpperCase();
+      const wouldRender = wrapTextToLines(roomText.trim(), roomColWForCheck, isItemized ? 10 : FONT_SIZE_ROOM).length > 0;
+      if (wouldRender && hasContent(room.name)) allItemIds.push(g.roomId);
     }
-    const it = items.find((i) => i.id === id);
-    return it && !isEmptyItem(it);
-  });
+    allItemIds.push(...g.items.map((i) => i.id));
+  }
+  const filteredIds = allItemIds;
   const rowHeights = computeRowHeights(items, filteredIds, rooms, isItemized);
   const tableTopY = y;
   const headerBg = accentColor;
   const headerY = tableTopY - HEADER_ROW_HEIGHT;
   const headerLabels = isItemized
     ? ["Tétel", "Menny.", "Egység", "Nettó egységár", "ÁFA %", "Nettó össz."]
-    : ["Tételek", "Megjegyzés"];
-  const col2X = Math.floor(CONTENT_WIDTH_PT / 2);
+    : ["Tétel", "Megjegyzés"];
   const colX = isItemized
     ? [MARGIN_PT, ...COL_WIDTHS.slice(0, -1).map((w, i) => MARGIN_PT + COL_WIDTHS.slice(0, i + 1).reduce((a, b) => a + b, 0))]
     : [MARGIN_PT, MARGIN_PT + col2X];
