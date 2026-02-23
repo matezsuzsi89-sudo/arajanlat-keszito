@@ -62,6 +62,8 @@
       margin: 10px 0;
       font-feature-settings: "tnum";
       font-variant-numeric: tabular-nums;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     th {
       background: {{accentColor}};
@@ -70,7 +72,7 @@
       font-size: 8pt;
       font-weight: 700;
       text-align: right;
-      line-height: 1.2;
+      line-height: 1.4;
       white-space: nowrap;
     }
     th:first-child { text-align: left; }
@@ -80,9 +82,11 @@
       font-size: 8pt;
       text-align: right;
       vertical-align: top;
-      line-height: 1.2;
+      line-height: 1.4;
       font-feature-settings: "tnum";
       font-variant-numeric: tabular-nums;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     td:first-child { text-align: left; }
     tr:nth-child(even) { background: #fafafa; }

@@ -46,19 +46,17 @@ export async function htmlToPdfBytes(html: string): Promise<Uint8Array> {
 
   const browser = await puppeteer.default.launch({
     args: chromium.args,
-    defaultViewport: null,
+    defaultViewport: { width: 1200, height: 1600, deviceScaleFactor: 1 },
     executablePath: await chromium.executablePath(),
     headless: chromium.headless,
   });
   try {
     const page = await browser.newPage();
-    await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 2 });
     await page.setContent(html, {
       waitUntil: "networkidle0",
       timeout: 15000,
     });
     await page.evaluate(() => document.fonts.ready);
-    await new Promise((r) => setTimeout(r, 150));
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
