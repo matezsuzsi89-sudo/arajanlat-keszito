@@ -135,9 +135,11 @@ function wrapTextToLines(
         break;
       }
       let breakAt = remaining.slice(0, charsPerLine).lastIndexOf(" ");
+      const breakingWord = breakAt <= 0;
       if (breakAt <= 0) breakAt = charsPerLine;
-      allLines.push(remaining.slice(0, breakAt).trim());
+      const firstPart = remaining.slice(0, breakAt).trim();
       remaining = remaining.slice(breakAt).trim();
+      allLines.push(breakingWord && firstPart.length > 0 ? `${firstPart}-` : firstPart);
     }
   }
   return allLines;
@@ -226,11 +228,13 @@ function computeRowHeights(
     if (!item) continue;
     const noteColWidth = isItemized ? nameColWidth : nameColWidth;
     const nameLines = wrapTextToLines(item.name?.trim() || "—", nameColWidth, FONT_SIZE);
-    const noteLines = item.note?.trim() ? wrapTextToLines(item.note.trim(), isItemized ? nameColWidth : noteColWidth, FONT_SIZE_NOTE) : [];
+    const noteFontSize = isItemized ? FONT_SIZE_NOTE : FONT_SIZE;
+    const noteLineHeight = isItemized ? LINE_HEIGHT_NOTE : LINE_HEIGHT_NAME;
+    const noteLines = item.note?.trim() ? wrapTextToLines(item.note.trim(), isItemized ? nameColWidth : noteColWidth, noteFontSize) : [];
     const subItems = (item.subItems ?? []).filter((s) => s.name?.trim());
     const subH = isItemized ? 0 : subItems.length * (LINE_HEIGHT_NOTE + 2);
     const nameH = nameLines.length * LINE_HEIGHT_NAME;
-    const noteH = noteLines.length * LINE_HEIGHT_NOTE;
+    const noteH = noteLines.length * noteLineHeight;
     const gap = noteH > 0 && isItemized ? GAP_NAME_NOTE : 0;
     const contentH = isItemized ? nameH + gap + noteH + subH : Math.max(nameH + subH, noteH) + (noteH > 0 ? GAP_NAME_NOTE : 0);
     result[id] = Math.max(20, contentH + ROW_PADDING_TOP + ROW_PADDING_BOTTOM + 4);
