@@ -22,14 +22,17 @@ async function loadTemplate(): Promise<string> {
  */
 export async function htmlToPdfBytes(html: string): Promise<Uint8Array> {
   const puppeteer = await import("puppeteer-core");
-  const chromium = await import("@sparticuz/chromium");
-  const chrom = (chromium as { default?: typeof chromium }).default ?? chromium;
+  const chromium = (await import("@sparticuz/chromium")) as unknown as {
+    args: string[];
+    executablePath: () => Promise<string>;
+    headless: true | "shell";
+  };
 
   const browser = await puppeteer.default.launch({
-    args: chrom.args,
+    args: chromium.args,
     defaultViewport: null,
-    executablePath: await chrom.executablePath(),
-    headless: chrom.headless ?? true,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
   });
   try {
     const page = await browser.newPage();
