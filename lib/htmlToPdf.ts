@@ -5,6 +5,7 @@
 
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import chromium from "@sparticuz/chromium";
 import type { FormData } from "./schema";
 import { generateQuoteHtml } from "@/templates/fill-template";
 
@@ -22,11 +23,6 @@ async function loadTemplate(): Promise<string> {
  */
 export async function htmlToPdfBytes(html: string): Promise<Uint8Array> {
   const puppeteer = await import("puppeteer-core");
-  const chromium = (await import("@sparticuz/chromium")) as unknown as {
-    args: string[];
-    executablePath: () => Promise<string>;
-    headless: true | "shell";
-  };
 
   const browser = await puppeteer.default.launch({
     args: chromium.args,
