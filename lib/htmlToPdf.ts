@@ -36,6 +36,7 @@ export async function htmlToPdfBytes(html: string): Promise<Uint8Array> {
       waitUntil: "networkidle0",
       timeout: 15000,
     });
+    await new Promise((r) => setTimeout(r, 150));
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,

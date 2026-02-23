@@ -5,15 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{headerTitle}}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;700&display=swap');
-
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     @page { margin-top: 15mm; margin-bottom: 15mm; }
     @page :first { margin-top: 0; }
     body {
       margin: 0;
       padding: 0;
-      font-family: 'Source Sans 3', sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       text-rendering: optimizeLegibility;
       font-size: 10pt;
       line-height: 1.4;
@@ -58,24 +56,28 @@
     .validity-expiry { margin-top: 12px; font-size: 10pt; }
     table {
       width: 100%;
+      table-layout: fixed;
       border-collapse: collapse;
       margin: 10px 0;
     }
     th {
       background: {{accentColor}};
       color: {{accentTextColor}};
-      padding: 6px 5px;
+      padding: 4px 8px;
       font-size: 8pt;
       font-weight: 700;
       text-align: right;
+      line-height: 1.2;
+      white-space: nowrap;
     }
     th:first-child { text-align: left; }
     th, td {
       border: 1px solid #ccc;
-      padding: 6px 5px;
+      padding: 4px 8px;
       font-size: 8pt;
       text-align: right;
       vertical-align: top;
+      line-height: 1.2;
     }
     td:first-child { text-align: left; }
     tr:nth-child(even) { background: #fafafa; }
@@ -178,6 +180,10 @@
 
 
     <table>
+      <colgroup>
+        {{#isItemized}}<col style="width:28%"><col style="width:8%"><col style="width:8%"><col style="width:14%"><col style="width:8%"><col style="width:16%"><col style="width:18%">{{/isItemized}}
+        {{#isNonItemized}}<col style="width:60%"><col style="width:40%">{{/isNonItemized}}
+      </colgroup>
       <thead>
         <tr>
           <th>Tétel</th>
