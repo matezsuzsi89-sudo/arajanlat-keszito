@@ -1,7 +1,21 @@
 import { NextResponse } from "next/server";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 import { formSchema } from "@/lib/schema";
 import { exportToPdfBytes } from "@/lib/pdfExport";
 import type { FormData } from "@/lib/schema";
+
+function loadFontBytes(): { regular: Uint8Array; bold: Uint8Array; italic: Uint8Array } | null {
+  const dir = join(process.cwd(), "public", "fonts");
+  const files = ["NotoSans-Regular.ttf", "NotoSans-Bold.ttf", "NotoSans-Italic.ttf"] as const;
+  const [r, b, i] = files.map((f) => join(dir, f));
+  if (!existsSync(r) || !existsSync(b) || !existsSync(i)) return null;
+  return {
+    regular: new Uint8Array(readFileSync(r)),
+    bold: new Uint8Array(readFileSync(b)),
+    italic: new Uint8Array(readFileSync(i)),
+  };
+}
 
 export const maxDuration = 60;
 
@@ -35,7 +49,8 @@ export async function POST(request: Request) {
       process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
         : request.headers.get("origin") || "http://localhost:3000";
-    const pdfBytes = await exportToPdfBytes(data, baseUrl);
+    const fontBytes = loadFontBytes();
+    const pdfBytes = await exportToPdfBytes(data, baseUrl, fontBytes ?? undefined);
     const filename = safeFilename(data.client, data.offerId);
 
     return new NextResponse(Buffer.from(pdfBytes), {

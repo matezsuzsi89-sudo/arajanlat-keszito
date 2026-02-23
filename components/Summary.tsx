@@ -107,36 +107,40 @@ export default function Summary({
       <div className="overflow-x-auto rounded border border-gray-200">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-200 px-2 py-2 text-left font-medium">
+            <tr
+              style={{
+                backgroundColor: data.pdfDesign?.accentColor ?? "#2563eb",
+              }}
+            >
+              <th className="border border-gray-200 px-2 py-2 text-left font-medium text-white">
                 Tétel
               </th>
               {isItemized ? (
                 <>
-                  <th className="border border-gray-200 px-2 py-2 text-left font-medium">
+                  <th className="border border-gray-200 px-2 py-2 text-left font-medium text-white">
                     Megjegyzés
                   </th>
-                  <th className="border border-gray-200 px-2 py-2 text-right font-medium">
+                  <th className="border border-gray-200 px-2 py-2 text-right font-medium text-white">
                     Menny.
                   </th>
-                  <th className="border border-gray-200 px-2 py-2 text-center font-medium">
+                  <th className="border border-gray-200 px-2 py-2 text-center font-medium text-white">
                     ME
                   </th>
-                  <th className="border border-gray-200 px-2 py-2 text-right font-medium">
+                  <th className="border border-gray-200 px-2 py-2 text-right font-medium text-white">
                     Nettó egységár
                   </th>
-                  <th className="border border-gray-200 px-2 py-2 text-center font-medium">
+                  <th className="border border-gray-200 px-2 py-2 text-center font-medium text-white">
                     ÁFA %
                   </th>
-                  <th className="border border-gray-200 px-2 py-2 text-right font-medium">
+                  <th className="border border-gray-200 px-2 py-2 text-right font-medium text-white">
                     Nettó
                   </th>
-                  <th className="border border-gray-200 px-2 py-2 text-right font-medium">
+                  <th className="border border-gray-200 px-2 py-2 text-right font-medium text-white">
                     Bruttó
                   </th>
                 </>
               ) : (
-                <th className="border border-gray-200 px-2 py-2 text-left font-medium">
+                <th className="border border-gray-200 px-2 py-2 text-left font-medium text-white">
                   Megjegyzés
                 </th>
               )}

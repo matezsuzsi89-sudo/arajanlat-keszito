@@ -44,9 +44,21 @@ const TABLE_BORDER = rgb(0.75, 0.75, 0.75);
 const FONT_SIZE_ROOM = 11;
 const SPACE_BEFORE_TOTALS = 38;
 
-async function loadUnicodeFonts(doc: import("pdf-lib").PDFDocument, baseUrl?: string) {
+async function loadUnicodeFonts(
+  doc: import("pdf-lib").PDFDocument,
+  baseUrl?: string,
+  fontBytes?: { regular: Uint8Array; bold: Uint8Array; italic: Uint8Array }
+) {
   try {
     doc.registerFontkit(fontkit);
+    if (fontBytes) {
+      const [font, fontBold, fontItalic] = await Promise.all([
+        doc.embedFont(fontBytes.regular, { subset: false }),
+        doc.embedFont(fontBytes.bold, { subset: false }),
+        doc.embedFont(fontBytes.italic, { subset: false }),
+      ]);
+      return { font, fontBold, fontItalic, useUnicode: true };
+    }
     const base =
       typeof window !== "undefined"
         ? `${window.location.origin}/api/font/`
@@ -253,10 +265,16 @@ function drawTableHeader(
   }
 }
 
+export type FontBytes = { regular: Uint8Array; bold: Uint8Array; italic: Uint8Array };
+
 /** Server-safe: returns raw PDF bytes. Use in API routes. */
-export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promise<Uint8Array> {
+export async function exportToPdfBytes(
+  data: FormData,
+  baseUrl?: string,
+  fontBytes?: FontBytes
+): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const { font, fontBold, fontItalic, useUnicode } = await loadUnicodeFonts(doc, baseUrl);
+  const { font, fontBold, fontItalic, useUnicode } = await loadUnicodeFonts(doc, baseUrl, fontBytes);
   const prepare = (t: string) => prepareText(t, useUnicode);
 
   let page = doc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]);
@@ -434,10 +452,16 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
 
   const rooms = getRoomsInOrder(data.rooms ?? []);
   const groups = groupItemsByRoom(items, rooms);
+  const isEmptyItem = (item: ItemData) =>
+    !(item.name?.trim()) &&
+    !(item.note?.trim()) &&
+    (!item.subItems || item.subItems.every((s) => !s.name?.trim()));
   const allItemIds: string[] = [];
   for (const g of groups) {
+    const nonEmpty = g.items.filter((i) => !isEmptyItem(i));
+    if (nonEmpty.length === 0) continue;
     if (g.roomId) allItemIds.push(g.roomId);
-    allItemIds.push(...g.items.map((i) => i.id));
+    allItemIds.push(...nonEmpty.map((i) => i.id));
   }
   const rowHeights = computeRowHeights(items, allItemIds, rooms, isItemized);
   const tableTopY = y;
@@ -496,6 +520,7 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
           page.drawLine({ start: { x: tblR, y: tblB }, end: { x: tblR, y: tblT }, thickness: bt, color: TABLE_BORDER });
           page.drawLine({ start: { x: tblR, y: tblT }, end: { x: tblL, y: tblT }, thickness: bt, color: TABLE_BORDER });
           page.drawLine({ start: { x: tblL, y: tblT }, end: { x: tblL, y: tblB }, thickness: bt, color: TABLE_BORDER });
+          page.drawLine({ start: { x: tblL + col2X, y: tblB }, end: { x: tblL + col2X, y: tblT }, thickness: bt, color: TABLE_BORDER });
         }
       }
       page = doc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]);
@@ -622,12 +647,6 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
           font,
         });
       }
-      page.drawLine({
-        start: { x: MARGIN_PT + col2X, y: borderY },
-        end: { x: MARGIN_PT + col2X, y: rowY + 2 },
-        thickness: 0.5,
-        color: TABLE_BORDER,
-      });
     }
     if (isItemized) {
       const netTotal = getItemNetTotal(item);
@@ -652,6 +671,7 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
     page.drawLine({ start: { x: tblR, y: tblB }, end: { x: tblR, y: tblT }, thickness: bt, color: TABLE_BORDER });
     page.drawLine({ start: { x: tblR, y: tblT }, end: { x: tblL, y: tblT }, thickness: bt, color: TABLE_BORDER });
     page.drawLine({ start: { x: tblL, y: tblT }, end: { x: tblL, y: tblB }, thickness: bt, color: TABLE_BORDER });
+    page.drawLine({ start: { x: tblL + col2X, y: tblB }, end: { x: tblL + col2X, y: tblT }, thickness: bt, color: TABLE_BORDER });
   }
   y -= SPACE_BEFORE_TOTALS;
 
