@@ -233,17 +233,19 @@ function drawTableHeader(
   prepare: (t: string) => string,
   accentColor: RGB
 ): void {
+  const rectBottom = y - HEADER_ROW_HEIGHT - 2;
   page.drawRectangle({
     x: MARGIN_PT,
-    y: y - HEADER_ROW_HEIGHT - 2,
+    y: rectBottom,
     width: CONTENT_WIDTH_PT,
     height: HEADER_ROW_HEIGHT + 4,
     color: accentColor,
   });
+  const headerTextY = rectBottom + (HEADER_ROW_HEIGHT + 4) / 2 - FONT_SIZE_SMALL / 2 - 1;
   for (let i = 0; i < headerLabels.length; i++) {
     page.drawText(prepare(headerLabels[i]), {
       x: colX[i] + 4,
-      y: y - HEADER_ROW_HEIGHT - 12,
+      y: headerTextY,
       size: FONT_SIZE_SMALL,
       font: fontBold,
       color: rgb(1, 1, 1),
@@ -455,10 +457,11 @@ export async function exportToPdfBytes(data: FormData, baseUrl?: string): Promis
     height: HEADER_ROW_HEIGHT + 4,
     color: headerBg,
   });
+  const headerTextY = headerY - 2 + (HEADER_ROW_HEIGHT + 4) / 2 - FONT_SIZE_SMALL / 2 - 1;
   for (let i = 0; i < headerLabels.length; i++) {
     page.drawText(prepare(headerLabels[i]), {
       x: colX[i] + 4,
-      y: headerY - 12,
+      y: headerTextY,
       size: FONT_SIZE_SMALL,
       font: fontBold,
       color: rgb(1, 1, 1),

@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 
-/** TTF URLs for PDF embedding (woff2 is unreliable in pdf-lib) */
-const TTF_CDN = "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans";
+/** TTF URLs for PDF embedding (woff2 is unreliable in pdf-lib). jsDelivr mirrors GitHub. */
+const TTF_CDN = "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts@main/hinted/ttf/NotoSans";
 
 const FONT_ENTRIES: Record<
   string,
