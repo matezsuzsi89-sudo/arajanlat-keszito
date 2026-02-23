@@ -205,8 +205,8 @@ function computeRowHeights(
 ): Record<string, number> {
   const result: Record<string, number> = {};
   const roomIds = new Set(rooms.map((r) => r.id));
-  const nameColWidth = isItemized ? LABEL_WIDTH - 8 : Math.floor(CONTENT_WIDTH_PT / 2) - 12;
-  const roomColW = isItemized ? CONTENT_WIDTH_PT : Math.floor(CONTENT_WIDTH_PT / 2) - 8;
+  const nameColWidth = isItemized ? LABEL_WIDTH - 8 : Math.floor(CONTENT_WIDTH_PT / 2) - 20;
+  const roomColW = isItemized ? CONTENT_WIDTH_PT : Math.floor(CONTENT_WIDTH_PT / 2) - 20;
   for (const id of allItemIds) {
     if (roomIds.has(id)) {
       const room = rooms.find((r) => r.id === id);
@@ -453,7 +453,10 @@ export async function exportToPdfBytes(
   const rooms = getRoomsInOrder(data.rooms ?? []);
   const groups = groupItemsByRoom(items, rooms);
   const hasContent = (s: string | undefined) => {
-    const t = (s ?? "").trim().replace(/\u200B|\u200C|\u200D|\uFEFF/g, "");
+    const t = (s ?? "")
+      .trim()
+      .replace(/[\u200B\u200C\u200D\uFEFF\u00A0\u00AD]/g, "")
+      .replace(/\s/g, "");
     return t.length > 0 && t !== "—" && t !== "–" && t !== "-";
   };
   const isEmptyItem = (item: ItemData) =>
@@ -560,7 +563,7 @@ export async function exportToPdfBytes(
         });
         const roomFontSize = isItemized ? FONT_SIZE : FONT_SIZE_ROOM;
         const roomText = isItemized ? room.name : (room.name ?? "").toUpperCase();
-        const roomColW = isItemized ? CONTENT_WIDTH_PT : col2X - 8;
+        const roomColW = isItemized ? CONTENT_WIDTH_PT : col2X - 20;
         const roomLines = wrapTextToLines(roomText, roomColW, roomFontSize);
         const roomLineH = roomFontSize + 1;
         let roomDrawY = rowY - ROW_PADDING_TOP;
@@ -579,8 +582,8 @@ export async function exportToPdfBytes(
     }
     if (!item) continue;
     const subItems = (item.subItems ?? []).filter((s) => s.name?.trim());
-    const nameColWidthLocal = isItemized ? LABEL_WIDTH - 8 : col2X - 12;
-    const noteColWidthLocal = isItemized ? LABEL_WIDTH - 8 : col2X - 12;
+    const nameColWidthLocal = isItemized ? LABEL_WIDTH - 8 : col2X - 20;
+    const noteColWidthLocal = isItemized ? LABEL_WIDTH - 8 : col2X - 20;
     const nameLines = wrapTextToLines(item.name.trim() || "—", nameColWidthLocal, FONT_SIZE);
     const noteLines = (item.note?.trim() ? wrapTextToLines(item.note.trim(), nameColWidthLocal, FONT_SIZE_NOTE) : []) as string[];
     const nameH = nameLines.length * LINE_HEIGHT_NAME;
@@ -761,8 +764,8 @@ export async function exportToPdfBytes(
       ? "Az ár tartalmazza az anyagköltséget és a munkadíjat is."
       : "Az ár csak a munkadíjra vonatkozik.";
   page.drawText(prepare(disclaimerText), {
-    x: MARGIN_PT,
-    y: y - 14,
+    x: summaryX,
+    y: y - 12,
     size: FONT_SIZE_SMALL,
     font,
   });
