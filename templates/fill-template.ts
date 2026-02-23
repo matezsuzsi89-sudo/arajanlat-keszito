@@ -12,6 +12,8 @@ import {
   getDiscountAmount,
   getFinalTotal,
   groupItemsByRoom,
+  isEmptyItem,
+  hasContent,
 } from "../lib/schema";
 
 function escapeHtml(s: string): string {
@@ -89,10 +91,13 @@ function renderItems(
   rooms: { id: string; name: string }[] = []
 ): string {
   const colCount = isItemized ? 7 : 2;
-  const groups = groupItemsByRoom(items, rooms);
+  const groups = groupItemsByRoom(items, rooms)
+    .map((g) => ({ ...g, items: g.items.filter((i) => !isEmptyItem(i)) }))
+    .filter((g) => g.items.length > 0);
   return groups
     .map((group) => {
-      const showRoomHeader = rooms.length > 0 || group.roomName !== "Egyéb";
+      const showRoomHeader =
+        (rooms.length > 0 || group.roomName !== "Egyéb") && hasContent(group.roomName);
       const header = showRoomHeader
         ? `<tr class="room-header-row"><td colspan="${colCount}" class="room-header-cell">${escapeHtml(group.roomName)}</td></tr>`
         : "";
